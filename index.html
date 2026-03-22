@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#185FA5">
+  <meta name="description" content="App de questões para concurseiros — jurisprudência dos tribunais">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="JurisQuiz">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>JurisQuiz</title>
+  <style>
+    :root {
+      --blue: #185FA5;
+      --blue-light: #E6F1FB;
+      --blue-mid: #85B7EB;
+      --blue-dark: #0C447C;
+      --green: #639922;
+      --green-light: #EAF3DE;
+      --red: #A32D2D;
+      --red-light: #FCEBEB;
+      --amber: #BA7517;
+      --amber-light: #FAEEDA;
+      --bg: #F8F8F6;
+      --surface: #FFFFFF;
+      --border: rgba(0,0,0,0.1);
+      --border-md: rgba(0,0,0,0.18);
+      --text: #1a1a18;
+      --text-secondary: #666660;
+      --text-hint: #999993;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111110;
+        --surface: #1e1e1c;
+        --border: rgba(255,255,255,0.1);
+        --border-md: rgba(255,255,255,0.18);
+        --text: #f0f0ec;
+        --text-secondary: #aaaaaa;
+        --text-hint: #666660;
+        --blue-light: #0c2a45;
+        --green-light: #162a05;
+        --red-light: #2a0f0f;
+        --amber-light: #2a1a05;
+        --shadow: 0 1px 4px rgba(0,0,0,0.3);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    .app {
+      max-width: 680px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 80px;
+    }
+    .top-bar {
+      background: var(--surface);
+      border-bottom: 0.5px solid var(--border);
+      padding: 14px 16px 10px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .top-bar h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+    .top-bar-row { display: flex; align-items: center; justify-content: space-between; }
+    .top-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .content { flex: 1; padding: 16px; }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 0.5px solid var(--border);
+      display: flex;
+      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 50;
+    }
+    .nav-item {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 10px 4px 8px;
+      font-size: 10px; font-weight: 500;
+      color: var(--text-hint);
+      border: none; background: transparent; cursor: pointer;
+      gap: 4px; transition: color 0.15s;
+    }
+    .nav-item.active { color: var(--blue); }
+    .nav-item svg { width: 22px; height: 22px; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px; }
+    .stat-box { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px 8px; text-align: center; box-shadow: var(--shadow); }
+    .stat-num { font-size: 24px; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    .badge {
+      display: inline-flex; align-items: center;
+      font-size: 11px; font-weight: 600; padding: 3px 9px;
+      border-radius: 20px; white-space: nowrap;
+    }
+    .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
+    .badge-green { background: var(--green-light); color: var(--green); }
+    .badge-red { background: var(--red-light); color: var(--red); }
+    .badge-amber { background: var(--amber-light); color: var(--amber); }
+    .badge-gray { background: var(--border); color: var(--text-secondary); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 18px; border-radius: var(--radius);
+      border: 0.5px solid var(--border-md);
+      background: var(--surface); color: var(--text);
+      font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+      -webkit-appearance: none;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--blue); color: white; border-color: var(--blue-dark); }
+    .btn-primary:active { background: var(--blue-dark); }
+    .btn-block { width: 100%; }
+    .btn-sm { padding: 7px 14px; font-size: 13px; }
+    input[type=text], input[type=email], select, textarea {
+      width: 100%; padding: 10px 12px;
+      border: 0.5px solid var(--border-md); border-radius: var(--radius);
+      background: var(--surface); color: var(--text);
+      font-size: 15px; font-family: inherit;
+      appearance: none; -webkit-appearance: none;
+    }
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outline-offset: -1px; border-color: transparent; }
+    .form-group { margin-bottom: 14px; }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .option-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px; border-radius: var(--radius);
+      border: 0.5px solid var(--border);
+      margin-bottom: 8px; cursor: pointer;
+      transition: all 0.15s; background: var(--surface);
+    }
+    .option-row:active { transform: scale(0.99); }
+    .option-row.selected { border-color: var(--blue-mid); background: var(--blue-light); }
+    .option-row.correct { border-color: var(--green); background: var(--green-light); }
+    .option-row.wrong { border-color: var(--red); background: var(--red-light); }
+    .option-row.disabled { cursor: default; pointer-events: none; }
+    .opt-letter {
+      width: 30px; height: 30px; min-width: 30px;
+      border-radius: 50%; border: 0.5px solid var(--border-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    }
+    .option-row.selected .opt-letter { background: var(--blue); color: white; border-color: var(--blue); }
+    .option-row.correct .opt-letter { background: var(--green); color: white; border-color: var(--green); }
+    .option-row.wrong .opt-letter { background: var(--red); color: white; border-color: var(--red); }
+    .opt-text { font-size: 14px; line-height: 1.55; color: var(--text); padding-top: 5px; }
+    .explanation {
+      margin-top: 12px; padding: 12px;
+      border-radius: var(--radius); border: 0.5px solid;
+    }
+    .explanation.ok { background: var(--green-light); border-color: var(--green); }
+    .explanation.fail { background: var(--red-light); border-color: var(--red); }
+    .explanation-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .explanation.ok .explanation-title { color: var(--green); }
+    .explanation.fail .explanation-title { color: var(--red); }
+    .explanation-body { font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+    .progress-wrap { background: var(--border); border-radius: 20px; height: 5px; margin-bottom: 16px; }
+    .progress-fill { height: 5px; border-radius: 20px; background: var(--blue); transition: width 0.35s ease; }
+    .filter-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-row select { flex: 1; min-width: 120px; font-size: 13px; padding: 8px 10px; }
+    .question-text { font-size: 15px; line-height: 1.7; margin-bottom: 16px; color: var(--text); }
+    .question-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .hist-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+    .hist-item:last-child { border-bottom: none; }
+    .dot { width: 9px; height: 9px; min-width: 9px; border-radius: 50%; }
+    .dot-green { background: var(--green); }
+    .dot-red { background: var(--red); }
+    .hist-q { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .hist-date { font-size: 11px; color: var(--text-hint); white-space: nowrap; }
+    .opt-add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .opt-add-row input { flex: 1; }
+    .radio-wrap { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+    .radio-wrap:hover { background: var(--bg); }
+    .actions-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 16px; }
+    .empty { text-align: center; padding: 40px 16px; color: var(--text-secondary); font-size: 14px; line-height: 1.7; }
+    .empty strong { color: var(--text); }
+    .section-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .install-banner {
+      background: var(--blue-light); border: 0.5px solid var(--blue-mid);
+      border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .install-banner-text { flex: 1; font-size: 13px; color: var(--blue-dark); line-height: 1.5; }
+    .install-banner strong { display: block; font-weight: 600; margin-bottom: 2px; }
+    #install-btn { background: var(--blue); color: white; border-color: var(--blue-dark); white-space: nowrap; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="top-bar">
+    <div class="top-bar-row">
+      <div>
+        <h1>JurisQuiz</h1>
+        <div class="top-sub" id="top-sub">Carregando...</div>
+      </div>
+      <div id="install-banner-mini" style="display:none">
+        <button class="btn btn-sm btn-primary" id="install-btn-mini">Instalar app</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- HOME -->
+    <div id="screen-home" class="screen active">
+      <div id="install-banner" class="install-banner" style="display:none">
+        <div class="install-banner-text">
+          <strong>Instalar no celular</strong>
+          Acesse como app, sem precisar do navegador.
+        </div>
+        <button class="btn btn-sm" id="install-btn">Instalar</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-num" id="s-total">0</div><div class="stat-label">Questões</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--green)" id="s-acertos">0</div><div class="stat-label">Acertos</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--red)" id="s-erros">0</div><div class="stat-label">Erros</div></div>
+        <div class="stat-box"><div class="stat-num" style="color:var(--blue)" id="s-taxa">—</div><div class="stat-label">Taxa</div></div>
+      </div>
+      <div class="section-title">Questões recentes</div>
+      <div id="home-list"></div>
+      <button class="btn btn-primary btn-block" onclick="goTo('study')" style="margin-top:8px">Resolver questões</button>
+    </div>
+
+    <!-- STUDY -->
+    <div id="screen-study" class="screen">
+      <div class="filter-row">
+        <select id="f-tribunal" onchange="startStudy()"><option value="">Todos os tribunais</option></select>
+        <select id="f-tema" onchange="startStudy()"><option value="">Todos os temas</option></select>
+        <select id="f-dif" onchange="startStudy()">
+          <option value="">Qualquer dificuldade</option>
+          <option>fácil</option><option>médio</option><option>difícil</option>
+        </select>
+      </div>
+      <div id="study-content"></div>
+    </div>
+
+    <!-- ADD -->
+    <div id="screen-add" class="screen">
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Enunciado</label>
+          <textarea id="n-enunciado" placeholder="Segundo entendimento do STJ..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tribunal</label>
+            <input type="text" id="n-tribunal" placeholder="STJ, STF, TST...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tema</label>
+            <input type="text" id="n-tema" placeholder="Processo Civil...">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dificuldade</label>
+          <select id="n-dif"><option>fácil</option><option selected>médio</option><option>difícil</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alternativas — marque (o) ao lado da correta</label>
+          <div id="opts-container"></div>
+          <button class="btn btn-sm" onclick="addOpt()" style="margin-top:6px">+ Alternativa</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Explicação do gabarito</label>
+          <textarea id="n-exp" placeholder="O STJ pacificou o entendimento de que..."></textarea>
+        </div>
+        <div class="actions-row">
+          <button class="btn btn-sm" onclick="initForm()">Limpar</button>
+          <button class="btn btn-primary" onclick="saveQ()">Salvar questão</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="screen-history" class="screen">
+      <div class="filter-row">
+        <select id="h-filter" onchange="renderHistory()">
+          <option value="">Todas as tentativas</option>
+          <option value="ok">Somente acertos</option>
+          <option value="fail">Somente erros</option>
+        </select>
+      </div>
+      <div class="card" id="history-list"></div>
+    </div>
+
+    <!-- REVIEW -->
+    <div id="screen-review" class="screen">
+      <div id="review-content"></div>
+    </div>
+
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="goTo('home')" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Início
+    </button>
+    <button class="nav-item" onclick="goTo('study')" id="nav-study">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Resolver
+    </button>
+    <button class="nav-item" onclick="goTo('add')" id="nav-add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Adicionar
+    </button>
+    <button class="nav-item" onclick="goTo('history')" id="nav-history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Histórico
+    </button>
+    <button class="nav-item" onclick="goTo('review')" id="nav-review">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+      Revisão
+    </button>
+  </nav>
+</div>
+
+<script>
+let qs = JSON.parse(localStorage.getItem('jq_questions') || '[]');
+let hist = JSON.parse(localStorage.getItem('jq_history') || '[]');
+let queue = [], qIdx = 0, qAnswered = false;
+let rQueue = [], rIdx = 0, rAnswered = false;
+let optCount = 0;
+let deferredPrompt = null;
+
+function save() {
+  localStorage.setItem('jq_questions', JSON.stringify(qs));
+  localStorage.setItem('jq_history', JSON.stringify(hist));
+}
+
+// PWA install prompt
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').style.display = 'flex';
+  document.getElementById('install-banner-mini').style.display = 'block';
+});
+function triggerInstall() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('install-banner').style.display = 'none';
+    document.getElementById('install-banner-mini').style.display = 'none';
+  });
+}
+document.getElementById('install-btn').onclick = triggerInstall;
+document.getElementById('install-btn-mini').onclick = triggerInstall;
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').style.display = 'none';
+  document.getElementById('install-banner-mini').style.display = 'none';
+});
+
+function goTo(s) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('screen-' + s).classList.add('active');
+  document.getElementById('nav-' + s).classList.add('active');
+  if (s === 'home') renderHome();
+  if (s === 'study') { fillFilters(); startStudy(); }
+  if (s === 'add') initForm();
+  if (s === 'history') renderHistory();
+  if (s === 'review') renderReview();
+}
+
+function renderHome() {
+  const answered = hist.length;
+  const correct = hist.filter(h => h.ok).length;
+  const wrong = answered - correct;
+  document.getElementById('s-total').textContent = qs.length;
+  document.getElementById('s-acertos').textContent = correct;
+  document.getElementById('s-erros').textContent = wrong;
+  document.getElementById('s-taxa').textContent = answered ? Math.round(correct / answered * 100) + '%' : '—';
+  document.getElementById('top-sub').textContent = qs.length + ' questões · ' + answered + ' respondidas';
+  const list = document.getElementById('home-list');
+  if (!qs.length) {
+    list.innerHTML = '<div class="empty">Nenhuma questão ainda.<br>Vá em <strong>Adicionar</strong> para criar a primeira.</div>';
+    return;
+  }
+  list.innerHTML = [...qs].reverse().slice(0, 5).map(q => `
+    <div class="card" style="cursor:pointer" onclick="goTo('study')">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;flex:1">${q.enunciado.substring(0, 110)}${q.enunciado.length > 110 ? '...' : ''}</p>
+        <span class="badge badge-blue" style="margin-left:8px">${q.tribunal || '—'}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${q.tema ? '<span class="badge badge-gray">' + q.tema + '</span>' : ''}
+        <span class="badge ${q.dificuldade === 'fácil' ? 'badge-green' : q.dificuldade === 'difícil' ? 'badge-red' : 'badge-amber'}">${q.dificuldade}</span>
+      </div>
+    </div>`).join('');
+}
+
+function fillFilters() {
+  const tribunais = [...new Set(qs.map(q => q.tribunal).filter(Boolean))];
+  const temas = [...new Set(qs.map(q => q.tema).filter(Boolean))];
+  const ft = document.getElementById('f-tribunal');
+  const fv = ft.value;
+  ft.innerHTML = '<option value="">Todos os tribunais</option>' + tribunais.map(t => `<option${t === fv ? ' selected' : ''}>${t}</option>`).join('');
+  const fm = document.getElementById('f-tema');
+  const fmv = fm.value;
+  fm.innerHTML = '<option value="">Todos os temas</option>' + temas.map(t => `<option${t === fmv ? ' selected' : ''}>${t}</option>`).join('');
+}
+
+function filteredQs() {
+  const t = document.getElementById('f-tribunal').value;
+  const tema = document.getElementById('f-tema').value;
+  const dif = document.getElementById('f-dif').value;
+  return qs.filter(q => (!t || q.tribunal === t) && (!tema || q.tema === tema) && (!dif || q.dificuldade === dif));
+}
+
+function startStudy() {
+  queue = [...filteredQs()].sort(() => Math.random() - 0.5);
+  qIdx = 0; qAnswered = false;
+  renderStudyQ();
+}
+
+function renderStudyQ() {
+  const el = document.getElementById('study-content');
+  if (!qs.length) { el.innerHTML = '<div class="empty">Adicione questões em <strong>Adicionar</strong> para começar.</div>'; return; }
+  if (!queue.length) { el.innerHTML = '<div class="empty">Nenhuma questão com esses filtros.</div>'; return; }
+  const q = queue[qIdx];
+  const pct = Math.round(qIdx / queue.length * 100);
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text-hint)">${qIdx + 1} de ${queue.length}</span>
+      <div style="display:flex;gap:6px">
+        <span class="badge badge-blue">${q.tribunal || '—'}</span>
+        <span class="badge ${q.dificuldade === 'fácil' ? 'badge-green' : q.dificuldade === 'difícil' ? 'badge-red' : 'badge-amber'}">${q.dificuldade}</span>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="card">
+      <div class="question-meta">
+        ${q.tema ? '<span class="badge badge-gray">' + q.tema + '</span>' : ''}
+      </div>
+      <p class="question-text">${q.enunciado}</p>
+      <div id="opts-study">
+        ${q.options.map((o, i) => `
+          <div class="option-row" id="so-${i}" onclick="answerStudy(${i})">
+            <div class="opt-letter">${String.fromCharCode(65 + i)}</div>
+            <div class="opt-text">${o.text}</div>
+          </div>`).join('')}
+      </div>
+      <div id="study-exp"></div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-sm" onclick="prevStudy()" ${qIdx === 0 ? 'disabled' : ''}>← Anterior</button>
+      <button class="btn btn-sm btn-primary" id="next-study-btn" style="display:none" onclick="nextStudy()">Próxima →</button>
+    </div>`;
+  qAnswered = false;
+}
+
+function answerStudy(i) {
+  if (qAnswered) return;
+  qAnswered = true;
+  const q = queue[qIdx];
+  const ok = q.options[i].correct;
+  const ci = q.options.findIndex(o => o.correct);
+  q.options.forEach((_, idx) => {
+    const el = document.getElementById('so-' + idx);
+    el.classList.add('disabled');
+    if (idx === ci) el.classList.add('correct');
+    else if (idx === i) el.classList.add('wrong');
+  });
+  const expEl = document.getElementById('study-exp');
+  expEl.innerHTML = `<div class="explanation ${ok ? 'ok' : 'fail'}">
+    <div class="explanation-title">${ok ? 'Correto!' : 'Incorreto — gabarito: ' + String.fromCharCode(65 + ci)}</div>
+    ${q.explicacao ? '<div class="explanation-body">' + q.explicacao + '</div>' : ''}
+  </div>`;
+  document.getElementById('next-study-btn').style.display = '';
+  hist.push({ qid: q.id, ok, date: new Date().toISOString(), tribunal: q.tribunal, tema: q.tema, enunciado: q.enunciado });
+  save(); renderHome();
+}
+
+function nextStudy() {
+  if (qIdx < queue.length - 1) { qIdx++; renderStudyQ(); }
+  else {
+    document.getElementById('study-content').innerHTML = `
+      <div class="empty card">Todas as questões respondidas!<br>
+        <button class="btn btn-primary" style="margin-top:16px" onclick="startStudy()">Recomeçar</button>
+      </div>`;
+  }
+}
+function prevStudy() { if (qIdx > 0) { qIdx--; renderStudyQ(); } }
+
+function renderHistory() {
+  const f = document.getElementById('h-filter').value;
+  let h = [...hist].reverse();
+  if (f === 'ok') h = h.filter(x => x.ok);
+  if (f === 'fail') h = h.filter(x => !x.ok);
+  const el = document.getElementById('history-list');
+  if (!h.length) { el.innerHTML = '<div class="empty">Nenhum registro ainda.</div>'; return; }
+  el.innerHTML = h.map(x => `
+    <div class="hist-item">
+      <div class="dot ${x.ok ? 'dot-green' : 'dot-red'}"></div>
+      <div class="hist-q">${x.enunciado || 'Questão'}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${x.tribunal ? '<span class="badge badge-blue">' + x.tribunal + '</span>' : ''}
+        <span class="hist-date">${new Date(x.date).toLocaleDateString('pt-BR')}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderReview() {
+  rQueue = qs.filter(q => {
+    const attempts = hist.filter(h => h.qid === q.id);
+    return attempts.length > 0 && !attempts[attempts.length - 1].ok;
+  });
+  rIdx = 0; rAnswered = false;
+  const el = document.getElementById('review-content');
+  if (!rQueue.length) { el.innerHTML = '<div class="empty card">Sem questões para revisar.<br>Erros aparecem aqui automaticamente após você responder.</div>'; return; }
+  renderReviewQ();
+}
+
+function renderReviewQ() {
+  const el = document.getElementById('review-content');
+  const q = rQueue[rIdx];
+  const pct = Math.round(rIdx / rQueue.length * 100);
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text-hint)">Revisão ${rIdx + 1} de ${rQueue.length}</span>
+      <span class="badge badge-red">Errada antes</span>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%;background:var(--red)"></div></div>
+    <div class="card">
+      <div class="question-meta">
+        <span class="badge badge-blue">${q.tribunal || '—'}</span>
+        ${q.tema ? '<span class="badge badge-gray">' + q.tema + '</span>' : ''}
+      </div>
+      <p class="question-text">${q.enunciado}</p>
+      <div id="opts-review">
+        ${q.options.map((o, i) => `
+          <div class="option-row" id="ro-${i}" onclick="answerReview(${i})">
+            <div class="opt-letter">${String.fromCharCode(65 + i)}</div>
+            <div class="opt-text">${o.text}</div>
+          </div>`).join('')}
+      </div>
+      <div id="review-exp"></div>
+    </div>
+    <div class="actions-row">
+      <span></span>
+      <button class="btn btn-sm btn-primary" id="next-rev-btn" style="display:none" onclick="nextReview()">Próxima →</button>
+    </div>`;
+  rAnswered = false;
+}
+
+function answerReview(i) {
+  if (rAnswered) return;
+  rAnswered = true;
+  const q = rQueue[rIdx];
+  const ok = q.options[i].correct;
+  const ci = q.options.findIndex(o => o.correct);
+  q.options.forEach((_, idx) => {
+    const el = document.getElementById('ro-' + idx);
+    el.classList.add('disabled');
+    if (idx === ci) el.classList.add('correct');
+    else if (idx === i) el.classList.add('wrong');
+  });
+  const expEl = document.getElementById('review-exp');
+  expEl.innerHTML = `<div class="explanation ${ok ? 'ok' : 'fail'}">
+    <div class="explanation-title">${ok ? 'Correto! Questão dominada.' : 'Errou de novo — gabarito: ' + String.fromCharCode(65 + ci)}</div>
+    ${q.explicacao ? '<div class="explanation-body">' + q.explicacao + '</div>' : ''}
+  </div>`;
+  document.getElementById('next-rev-btn').style.display = '';
+  hist.push({ qid: q.id, ok, date: new Date().toISOString(), tribunal: q.tribunal, tema: q.tema, enunciado: q.enunciado });
+  save();
+}
+
+function nextReview() {
+  if (rIdx < rQueue.length - 1) { rIdx++; renderReviewQ(); }
+  else { document.getElementById('review-content').innerHTML = '<div class="empty card">Revisão concluída!</div>'; }
+}
+
+function initForm() {
+  optCount = 0;
+  document.getElementById('opts-container').innerHTML = '';
+  document.getElementById('n-enunciado').value = '';
+  document.getElementById('n-tribunal').value = '';
+  document.getElementById('n-tema').value = '';
+  document.getElementById('n-exp').value = '';
+  document.getElementById('n-dif').value = 'médio';
+  addOpt(); addOpt(); addOpt(); addOpt();
+}
+
+function addOpt() {
+  const c = document.getElementById('opts-container');
+  const idx = optCount++;
+  const row = document.createElement('div');
+  row.className = 'opt-add-row';
+  row.id = 'opt-add-' + idx;
+  row.innerHTML = `
+    <label class="radio-wrap" title="Marcar como correta">
+      <input type="radio" name="correct-opt" value="${idx}">
+      <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">${String.fromCharCode(65 + idx)}</span>
+    </label>
+    <input type="text" placeholder="Alternativa ${String.fromCharCode(65 + idx)}">`;
+  c.appendChild(row);
+}
+
+function saveQ() {
+  const enunciado = document.getElementById('n-enunciado').value.trim();
+  const tribunal = document.getElementById('n-tribunal').value.trim();
+  const tema = document.getElementById('n-tema').value.trim();
+  const dificuldade = document.getElementById('n-dif').value;
+  const explicacao = document.getElementById('n-exp').value.trim();
+  const rows = document.querySelectorAll('[id^=opt-add-]');
+  const options = [];
+  let hasCorrect = false;
+  rows.forEach(row => {
+    const text = row.querySelector('input[type=text]').value.trim();
+    const isCorrect = row.querySelector('input[type=radio]').checked;
+    if (text) { options.push({ text, correct: isCorrect }); if (isCorrect) hasCorrect = true; }
+  });
+  if (!enunciado) { alert('Preencha o enunciado.'); return; }
+  if (options.length < 2) { alert('Adicione pelo menos 2 alternativas.'); return; }
+  if (!hasCorrect) { alert('Marque a alternativa correta.'); return; }
+  qs.push({ id: Date.now().toString(), enunciado, tribunal, tema, dificuldade, explicacao, options, createdAt: new Date().toISOString() });
+  save();
+  alert('Questão salva com sucesso!');
+  initForm();
+  renderHome();
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+renderHome();
+</script>
+</body>
+</html>

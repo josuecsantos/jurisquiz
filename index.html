@@ -798,11 +798,17 @@ function renderListaFiltrada() {
 async function confirmarLimpar() {
   if (!confirm('Tem certeza que deseja limpar todos os seus resultados nesta matéria? Esta ação não pode ser desfeita.')) return;
   const userId = await getUserId();
-  const ids = questoesFiltradas.map(q => "'" + q.id + "'").join(',');
-  if (!ids) return;
-  await api('respostas?usuario_id=eq.' + userId + '&questao_id=in.(' + ids + ')', {
-    method: 'DELETE', prefer: 'return=minimal'
-  });
+  if (!questoesFiltradas.length) return;
+  const ids = questoesFiltradas.map(q => q.id);
+  let deletedAll = true;
+  for (const qid of ids) {
+    const res = await api('respostas?usuario_id=eq.' + userId + '&questao_id=eq.' + qid, {
+      method: 'DELETE',
+      headers: { 'Prefer': 'return=minimal' }
+    });
+    if (!res.ok) deletedAll = false;
+  }
+  historico = historico.filter(h => !ids.includes(h.questao_id));
   await carregarDados();
   mostrarQuestaoFiltrada();
   alert('Resultados limpos com sucesso!');

@@ -1315,12 +1315,12 @@ function userCardHTML(u) {
   const statusLabel = { ativo: 'Ativo', aguardando: 'Aguardando', banido: 'Banido' }[u.status] || u.status;
   let actions = '';
   if (u.status === 'aguardando') {
-    actions = '<button class="user-action-btn btn-aprovar" onclick="alterarStatus('' + u.id + '', 'ativo')">✓ Aprovar</button>' +
-              '<button class="user-action-btn btn-banir" onclick="alterarStatus('' + u.id + '', 'banido')">✗ Banir</button>';
+    actions = '<button class="user-action-btn btn-aprovar" onclick="alterarStatus(\'' + u.id + '\', \'ativo\')">✓ Aprovar</button>' +
+              '<button class="user-action-btn btn-banir" onclick="alterarStatus(\'' + u.id + '\', \'banido\')">✗ Banir</button>';
   } else if (u.status === 'ativo') {
-    actions = '<button class="user-action-btn btn-banir" onclick="alterarStatus('' + u.id + '', 'banido')">✗ Banir</button>';
+    actions = '<button class="user-action-btn btn-banir" onclick="alterarStatus(\'' + u.id + '\', \'banido\')">✗ Banir</button>';
   } else if (u.status === 'banido') {
-    actions = '<button class="user-action-btn btn-reativar" onclick="alterarStatus('' + u.id + '', 'ativo')">↩ Reativar</button>';
+    actions = '<button class="user-action-btn btn-reativar" onclick="alterarStatus(\'' + u.id + '\', \'ativo\')">↩ Reativar</button>';
   }
   return '<div class="user-card">' +
     '<div class="user-card-top">' +

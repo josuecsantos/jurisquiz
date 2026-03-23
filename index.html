@@ -963,7 +963,7 @@ function abrirQuiz(id) {
   mostrarQuizQuestao(q);
 }
 
-function mostrarQuizQuestao(q) {
+async function mostrarQuizQuestao(q) {
   document.getElementById('quiz-tribunal').textContent = q.tribunal || '—';
   document.getElementById('quiz-tema').textContent = q.tema || '';
   document.getElementById('quiz-dif').textContent = q.dificuldade || 'médio';

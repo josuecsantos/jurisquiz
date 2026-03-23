@@ -1,28 +1,17 @@
 {
-  "name": "JurisQuiz — Questões para Concurso",
+  "name": "JurisQuiz — Jurisprudência dos Tribunais",
   "short_name": "JurisQuiz",
-  "description": "App de questões objetivas para concurseiros — jurisprudência dos tribunais",
+  "description": "Questões objetivas de jurisprudência para concurseiros",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#F8F8F6",
-  "theme_color": "#185FA5",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
   "orientation": "portrait-primary",
   "lang": "pt-BR",
   "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
-  "categories": ["education", "productivity"],
-  "screenshots": []
+  "categories": ["education", "productivity"]
 }

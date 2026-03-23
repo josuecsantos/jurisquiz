@@ -289,6 +289,31 @@
     .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cream2); transition: all 0.2s; }
     .step-dot.active { background: var(--ink); width: 20px; border-radius: 4px; }
 
+    /* COMMENTS */
+    .comments-section { margin-top: 24px; }
+    .comments-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .comments-count { background: var(--cream2); color: var(--muted); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+    .comment-box { margin-bottom: 12px; }
+    .comment { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+    .comment-reply { margin-left: 20px; margin-top: 8px; border-left: 2px solid var(--border); padding-left: 12px; }
+    .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .comment-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: 'DM Sans', sans-serif; min-width: 28px; }
+    .comment-author { font-size: 13px; font-weight: 500; color: var(--ink); }
+    .comment-date { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .comment-text { font-size: 14px; line-height: 1.6; color: var(--ink); text-align: justify; }
+    .comment-actions { display: flex; gap: 12px; margin-top: 8px; }
+    .comment-action-btn { font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; padding: 0; transition: color 0.15s; }
+    .comment-action-btn:hover { color: var(--ink); }
+    .new-comment-box { background: white; border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-top: 16px; }
+    .new-comment-box.reply-mode { border-color: var(--gold); }
+    .reply-indicator { background: var(--gold-light); padding: 8px 14px; font-size: 12px; color: var(--gold-dark); display: flex; align-items: center; justify-content: space-between; }
+    .reply-cancel { background: none; border: none; color: var(--gold-dark); cursor: pointer; font-size: 16px; font-family: 'DM Sans', sans-serif; }
+    .new-comment-input { width: 100%; padding: 12px 14px; border: none; outline: none; font-size: 14px; color: var(--ink); font-family: 'DM Sans', sans-serif; resize: none; min-height: 80px; line-height: 1.6; background: white; }
+    .new-comment-footer { display: flex; justify-content: flex-end; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--cream); }
+    .btn-comment { padding: 8px 18px; border-radius: var(--radius); background: var(--ink); color: var(--gold); border: none; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+    .btn-comment:active { transform: scale(0.97); }
+    .btn-comment:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* FILTER BUTTONS */
     .filtro-status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
     .filtro-btn {
@@ -306,6 +331,31 @@
     .voltar-filtro { font-size: 12px; color: var(--muted); cursor: pointer; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px; }
 
     /* LOADING */
+    /* COMMENTS */
+    .comments-section { margin-top: 24px; }
+    .comments-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .comments-count { background: var(--cream2); color: var(--muted); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+    .comment-box { margin-bottom: 12px; }
+    .comment { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+    .comment-reply { margin-left: 20px; margin-top: 8px; border-left: 2px solid var(--border); padding-left: 12px; }
+    .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .comment-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--ink); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: 'DM Sans', sans-serif; min-width: 28px; }
+    .comment-author { font-size: 13px; font-weight: 500; color: var(--ink); }
+    .comment-date { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .comment-text { font-size: 14px; line-height: 1.6; color: var(--ink); text-align: justify; }
+    .comment-actions { display: flex; gap: 12px; margin-top: 8px; }
+    .comment-action-btn { font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; padding: 0; transition: color 0.15s; }
+    .comment-action-btn:hover { color: var(--ink); }
+    .new-comment-box { background: white; border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-top: 16px; }
+    .new-comment-box.reply-mode { border-color: var(--gold); }
+    .reply-indicator { background: var(--gold-light); padding: 8px 14px; font-size: 12px; color: var(--gold-dark); display: flex; align-items: center; justify-content: space-between; }
+    .reply-cancel { background: none; border: none; color: var(--gold-dark); cursor: pointer; font-size: 16px; font-family: 'DM Sans', sans-serif; }
+    .new-comment-input { width: 100%; padding: 12px 14px; border: none; outline: none; font-size: 14px; color: var(--ink); font-family: 'DM Sans', sans-serif; resize: none; min-height: 80px; line-height: 1.6; background: white; }
+    .new-comment-footer { display: flex; justify-content: flex-end; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--cream); }
+    .btn-comment { padding: 8px 18px; border-radius: var(--radius); background: var(--ink); color: var(--gold); border: none; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+    .btn-comment:active { transform: scale(0.97); }
+    .btn-comment:disabled { opacity: 0.5; cursor: not-allowed; }
+
     /* FILTER BUTTONS */
     .filtro-status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
     .filtro-btn {
@@ -533,6 +583,25 @@
       <div style="display:flex;gap:10px">
         <button class="btn-quiz primary" id="btn-confirmar" style="display:none" onclick="confirmarResposta()">Confirmar resposta</button>
         <button class="btn-quiz primary" id="btn-proxima" style="display:none" onclick="proximaQuestao()">Próxima →</button>
+      </div>
+    </div>
+
+    <!-- COMMENTS -->
+    <div class="comments-section" id="comments-section" style="display:none">
+      <div class="comments-title">
+        Discussão
+        <span class="comments-count" id="comments-count">0</span>
+      </div>
+      <div id="comments-list"></div>
+      <div class="new-comment-box" id="new-comment-box">
+        <div class="reply-indicator" id="reply-indicator" style="display:none">
+          <span id="reply-to-name">Respondendo a...</span>
+          <button class="reply-cancel" onclick="cancelarResposta()">×</button>
+        </div>
+        <textarea class="new-comment-input" id="new-comment-text" placeholder="Escreva um comentário..."></textarea>
+        <div class="new-comment-footer">
+          <button class="btn-comment" onclick="enviarComentario()">Comentar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -923,11 +992,15 @@ function mostrarQuizQuestao(q) {
   document.getElementById('quiz-result').style.display = 'none';
   document.getElementById('btn-proxima').style.display = 'none';
   document.getElementById('btn-confirmar').style.display = 'none';
+  document.getElementById('comments-section').style.display = 'none';
+  document.getElementById('comments-list').innerHTML = '';
   quizAnswered = false;
   document.getElementById('quiz-screen').classList.add('open');
   window.currentQuestao = q;
   window.getSelectedLetra = () => selectedLetra;
   window.scrollTo(0, 0);
+  const jaRespondida = historico.find(h => h.questao_id === q.id);
+  if (jaRespondida) { await carregarComentarios(q.id); }
 }
 
 async function confirmarResposta() {
@@ -961,6 +1034,7 @@ async function responder(letra, gabarito, questaoId) {
   document.getElementById('btn-confirmar').style.display = 'none';
   await salvarResposta(questaoId, letra, correto);
   await carregarDados();
+  await carregarComentarios(questaoId);
   renderHome();
 }
 
@@ -984,6 +1058,117 @@ function proximaQuestao() {
 
 function closeQuiz() {
   document.getElementById('quiz-screen').classList.remove('open');
+}
+
+// COMMENTS
+let currentQuestaoId = null;
+let replyToId = null;
+let replyToNome = null;
+let comentarios = [];
+
+async function carregarComentarios(questaoId) {
+  currentQuestaoId = questaoId;
+  const res = await api('comentarios?questao_id=eq.' + questaoId + '&order=created_at.asc&select=*,usuarios(nome,email)');
+  comentarios = await res.json();
+  renderComentarios();
+  document.getElementById('comments-section').style.display = 'block';
+}
+
+function renderComentarios() {
+  const raiz = comentarios.filter(c => !c.comentario_pai_id);
+  const count = comentarios.length;
+  document.getElementById('comments-count').textContent = count;
+  const el = document.getElementById('comments-list');
+  if (!raiz.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:12px 0;text-align:center">Seja o primeiro a comentar!</div>';
+    return;
+  }
+  el.innerHTML = raiz.map(c => renderComentario(c)).join('');
+}
+
+function getNome(c) {
+  return c.usuarios?.nome || c.usuarios?.email?.split('@')[0] || 'Usuário';
+}
+
+function getIniciais(c) {
+  const nome = getNome(c);
+  return nome.substring(0, 2).toUpperCase();
+}
+
+function renderComentario(c) {
+  const respostas = comentarios.filter(r => r.comentario_pai_id === c.id);
+  const data = new Date(c.created_at).toLocaleDateString('pt-BR');
+  return '<div class="comment-box">' +
+    '<div class="comment">' +
+      '<div class="comment-header">' +
+        '<div class="comment-avatar">' + getIniciais(c) + '</div>' +
+        '<span class="comment-author">' + getNome(c) + '</span>' +
+        '<span class="comment-date">' + data + '</span>' +
+      '</div>' +
+      '<div class="comment-text">' + escapeHtml(c.texto) + '</div>' +
+      '<div class="comment-actions">' +
+        '<button class="comment-action-btn" onclick="iniciarResposta('' + c.id + '', '' + escapeAttr(getNome(c)) + '')">↩ Responder</button>' +
+      '</div>' +
+    '</div>' +
+    (respostas.length ? '<div class="comment-reply">' + respostas.map(r => renderRespostaComentario(r)).join('') + '</div>' : '') +
+  '</div>';
+}
+
+function renderRespostaComentario(c) {
+  const data = new Date(c.created_at).toLocaleDateString('pt-BR');
+  return '<div class="comment" style="margin-bottom:8px">' +
+    '<div class="comment-header">' +
+      '<div class="comment-avatar" style="width:24px;height:24px;font-size:10px;min-width:24px">' + getIniciais(c) + '</div>' +
+      '<span class="comment-author">' + getNome(c) + '</span>' +
+      '<span class="comment-date">' + data + '</span>' +
+    '</div>' +
+    '<div class="comment-text">' + escapeHtml(c.texto) + '</div>' +
+  '</div>';
+}
+
+function escapeHtml(text) {
+  return (text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;').replace(/\n/g,'<br>');
+}
+
+function escapeAttr(text) {
+  return (text || '').replace(/'/g, "\'");
+}
+
+function iniciarResposta(comentarioId, nome) {
+  replyToId = comentarioId;
+  replyToNome = nome;
+  document.getElementById('reply-indicator').style.display = 'flex';
+  document.getElementById('reply-to-name').textContent = 'Respondendo a ' + nome;
+  document.getElementById('new-comment-box').classList.add('reply-mode');
+  document.getElementById('new-comment-text').focus();
+  document.getElementById('new-comment-text').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelarResposta() {
+  replyToId = null;
+  replyToNome = null;
+  document.getElementById('reply-indicator').style.display = 'none';
+  document.getElementById('new-comment-box').classList.remove('reply-mode');
+}
+
+async function enviarComentario() {
+  const texto = document.getElementById('new-comment-text').value.trim();
+  if (!texto) return;
+  const userId = await getUserId();
+  const btn = document.querySelector('.btn-comment');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const body = {
+    questao_id: currentQuestaoId,
+    usuario_id: userId,
+    texto: texto
+  };
+  if (replyToId) body.comentario_pai_id = replyToId;
+  const { error } = await sb.from('comentarios').insert(body);
+  btn.disabled = false; btn.textContent = 'Comentar';
+  if (error) { alert('Erro ao enviar: ' + error.message); return; }
+  document.getElementById('new-comment-text').value = '';
+  cancelarResposta();
+  await carregarComentarios(currentQuestaoId);
 }
 
 if ('serviceWorker' in navigator) {

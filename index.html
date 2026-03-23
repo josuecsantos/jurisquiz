@@ -634,11 +634,9 @@ function mostrarQuizQuestao(q) {
     { letra: 'E', texto: q.alternativa_e },
   ].filter(a => a.texto);
   const altsEl = document.getElementById('quiz-alternativas');
-  altsEl.innerHTML = alts.map((a, i) => `
-    <div class="quiz-alternativa" id="alt-\${i}" data-idx="\${i}" data-letra="\${a.letra}">
-      <div class="alt-letter">\${a.letra}</div>
-      <div class="alt-text">\${a.texto}</div>
-    </div>`).join('');
+  altsEl.innerHTML = alts.map((a, i) => {
+    return '<div class="quiz-alternativa" id="alt-' + i + '" data-idx="' + i + '" data-letra="' + a.letra + '"><div class="alt-letter">' + a.letra + '</div><div class="alt-text">' + a.texto + '</div></div>';
+  }).join('');
   altsEl.querySelectorAll('.quiz-alternativa').forEach(el => {
     el.addEventListener('click', () => {
       responder(parseInt(el.dataset.idx), el.dataset.letra, q.gabarito, q.id);

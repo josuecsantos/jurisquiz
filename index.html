@@ -785,6 +785,14 @@ async function doRegister() {
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nome } } });
   btn.disabled = false; btn.textContent = 'Solicitar acesso';
   if (error) { showMsg(error.message || 'Erro ao cadastrar. Tente novamente.'); return; }
+  // Notificar admin por e-mail
+  try {
+    await fetch('https://medkfofzgzqpkbssyvey.supabase.co/functions/v1/clever-action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY },
+      body: JSON.stringify({ nome, email })
+    });
+  } catch(e) { console.log('Email notification failed:', e); }
   showMsg('Cadastro realizado! Assim que aprovado, você receberá o acesso. Entre em contato com o administrador.', 'success');
 }
 

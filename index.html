@@ -271,7 +271,39 @@
     .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cream2); transition: all 0.2s; }
     .step-dot.active { background: var(--ink); width: 20px; border-radius: 4px; }
 
+    /* FILTER BUTTONS */
+    .filtro-status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .filtro-btn {
+      padding: 10px 8px; border-radius: var(--radius); border: 1.5px solid var(--border);
+      background: white; font-size: 12px; font-weight: 500; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: all 0.15s; text-align: center;
+      color: var(--ink);
+    }
+    .filtro-btn:active { transform: scale(0.97); }
+    .filtro-btn.active-nao { border-color: var(--ink); background: var(--ink); color: var(--gold); }
+    .filtro-btn.active-acerto { border-color: var(--green); background: var(--green-light); color: var(--green); }
+    .filtro-btn.active-erro { border-color: var(--red); background: var(--red-light); color: var(--red); }
+    .filtro-btn.limpar { border-color: var(--muted); color: var(--muted); grid-column: 1 / -1; }
+    .filtro-btn.limpar:active { background: var(--cream2); }
+    .voltar-filtro { font-size: 12px; color: var(--muted); cursor: pointer; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
     /* LOADING */
+    /* FILTER BUTTONS */
+    .filtro-status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .filtro-btn {
+      padding: 10px 8px; border-radius: var(--radius); border: 1.5px solid var(--border);
+      background: white; font-size: 12px; font-weight: 500; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; transition: all 0.15s; text-align: center;
+      color: var(--ink);
+    }
+    .filtro-btn:active { transform: scale(0.97); }
+    .filtro-btn.active-nao { border-color: var(--ink); background: var(--ink); color: var(--gold); }
+    .filtro-btn.active-acerto { border-color: var(--green); background: var(--green-light); color: var(--green); }
+    .filtro-btn.active-erro { border-color: var(--red); background: var(--red-light); color: var(--red); }
+    .filtro-btn.limpar { border-color: var(--muted); color: var(--muted); grid-column: 1 / -1; }
+    .filtro-btn.limpar:active { background: var(--cream2); }
+    .voltar-filtro { font-size: 12px; color: var(--muted); cursor: pointer; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
     /* LOADING */
     .loading { text-align: center; padding: 2rem; color: var(--muted); font-size: 14px; }
     .spinner { width: 24px; height: 24px; border: 2px solid var(--cream2); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
@@ -392,6 +424,7 @@
 
       <!-- Stats (shown after filtering) -->
       <div id="step-stats" style="display:none">
+        <div class="voltar-filtro" onclick="renderHome()">← Mudar filtros</div>
         <div class="stats-grid">
           <div class="stat-box"><div class="stat-num" id="s-total" style="color:var(--ink)">0</div><div class="stat-label">Questões</div></div>
           <div class="stat-box"><div class="stat-num" id="s-taxa" style="color:var(--gold)">—</div><div class="stat-label">Aproveit.</div></div>
@@ -399,6 +432,13 @@
           <div class="stat-box"><div class="stat-num" id="s-erros" style="color:var(--red)">0</div><div class="stat-label">Erros</div></div>
         </div>
         <div class="progress-wrap"><div class="progress-fill" id="home-progress" style="width:0%"></div></div>
+        <div class="filtro-status">
+          <button class="filtro-btn" id="fbtn-nao" onclick="filtrarStatus('nao')">Não resolvidas</button>
+          <button class="filtro-btn" id="fbtn-acerto" onclick="filtrarStatus('acerto')">Acertei</button>
+          <button class="filtro-btn" id="fbtn-erro" onclick="filtrarStatus('erro')">Errei</button>
+          <button class="filtro-btn" id="fbtn-todas" onclick="filtrarStatus('todas')">Todas</button>
+          <button class="filtro-btn limpar" onclick="confirmarLimpar()">Limpar meus resultados nesta matéria</button>
+        </div>
         <div id="home-list"></div>
       </div>
     </div>
@@ -696,9 +736,7 @@ function mostrarQuestaoFiltrada() {
   if (filtroMateria && filtroMateria !== 'tudo') {
     filtradas = filtradas.filter(q => q.tema && q.tema.toUpperCase().includes(filtroMateria.toUpperCase()));
   }
-  const respondidas = new Set(historico.map(h => h.questao_id));
-  const naoRespondidas = filtradas.filter(q => !respondidas.has(q.id));
-  const paraEstudar = naoRespondidas.length > 0 ? naoRespondidas : filtradas;
+  questoesFiltradas = filtradas;
   const answered = historico.filter(h => filtradas.find(q => q.id === h.questao_id)).length;
   const correct = historico.filter(h => h.acertou && filtradas.find(q => q.id === h.questao_id)).length;
   document.getElementById('s-total').textContent = filtradas.length;
@@ -708,23 +746,66 @@ function mostrarQuestaoFiltrada() {
   const pct = answered ? Math.round(correct / answered * 100) : 0;
   document.getElementById('home-progress').style.width = pct + '%';
   document.getElementById('step-stats').style.display = 'block';
-  quizQueue = paraEstudar;
+  filtroStatus = 'nao';
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active-nao','active-acerto','active-erro'));
+  document.getElementById('fbtn-nao').classList.add('active-nao');
+  renderListaFiltrada();
+}
+
+let filtroStatus = 'nao';
+let questoesFiltradas = [];
+
+function filtrarStatus(status) {
+  filtroStatus = status;
+  document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active-nao','active-acerto','active-erro'));
+  const map = { nao: 'fbtn-nao', acerto: 'fbtn-acerto', erro: 'fbtn-erro', todas: 'fbtn-todas' };
+  const cls = { nao: 'active-nao', acerto: 'active-acerto', erro: 'active-erro', todas: 'active-nao' };
+  if (map[status]) document.getElementById(map[status]).classList.add(cls[status] || 'active-nao');
+  renderListaFiltrada();
+}
+
+function renderListaFiltrada() {
+  const respondidas = new Set(historico.map(h => h.questao_id));
+  const acertadas = new Set(historico.filter(h => h.acertou).map(h => h.questao_id));
+  const erradas = new Set(historico.filter(h => !h.acertou).map(h => h.questao_id));
+  let lista = [...questoesFiltradas];
+  if (filtroStatus === 'nao') lista = lista.filter(q => !respondidas.has(q.id));
+  else if (filtroStatus === 'acerto') lista = lista.filter(q => acertadas.has(q.id));
+  else if (filtroStatus === 'erro') lista = lista.filter(q => erradas.has(q.id));
+  quizQueue = lista;
   quizIdx = 0;
   const list = document.getElementById('home-list');
-  if (!paraEstudar.length) {
-    list.innerHTML = '<div class="empty">Nenhuma questão encontrada com esses filtros.</div>';
+  if (!lista.length) {
+    const msgs = {
+      nao: 'Parabéns! Você respondeu todas as questões desta matéria.',
+      acerto: 'Nenhuma questão acertada ainda nesta matéria.',
+      erro: 'Nenhuma questão errada nesta matéria.',
+      todas: 'Nenhuma questão encontrada.'
+    };
+    list.innerHTML = '<div class="empty">' + (msgs[filtroStatus] || 'Nenhuma questão encontrada.') + '</div>';
     return;
   }
-  if (naoRespondidas.length > 0) {
-    const proxima = naoRespondidas[0];
-    list.innerHTML = '<div class="section-title">Próxima questão não respondida</div>' +
-      questaoCardHTML(proxima) +
-      (naoRespondidas.length > 1 ? '<div class="section-title" style="margin-top:16px">Outras não respondidas (' + (naoRespondidas.length - 1) + ')</div>' +
-      naoRespondidas.slice(1, 4).map(q => questaoCardHTML(q)).join('') : '');
-  } else {
-    list.innerHTML = '<div class="section-title">Todas respondidas! Refazendo questões</div>' +
-      filtradas.slice(0, 5).map(q => questaoCardHTML(q)).join('');
-  }
+  const label = {
+    nao: 'Não resolvidas (' + lista.length + ')',
+    acerto: 'Questões que acertei (' + lista.length + ')',
+    erro: 'Questões que errei (' + lista.length + ')',
+    todas: 'Todas as questões (' + lista.length + ')'
+  };
+  list.innerHTML = '<div class="section-title">' + (label[filtroStatus] || '') + '</div>' +
+    lista.map(q => questaoCardHTML(q)).join('');
+}
+
+async function confirmarLimpar() {
+  if (!confirm('Tem certeza que deseja limpar todos os seus resultados nesta matéria? Esta ação não pode ser desfeita.')) return;
+  const userId = await getUserId();
+  const ids = questoesFiltradas.map(q => "'" + q.id + "'").join(',');
+  if (!ids) return;
+  await api('respostas?usuario_id=eq.' + userId + '&questao_id=in.(' + ids + ')', {
+    method: 'DELETE', prefer: 'return=minimal'
+  });
+  await carregarDados();
+  mostrarQuestaoFiltrada();
+  alert('Resultados limpos com sucesso!');
 }
 
 function questaoCardHTML(q) {

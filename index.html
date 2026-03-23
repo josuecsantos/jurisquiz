@@ -162,41 +162,59 @@
     .quiz-meta-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 1px; }
     .quiz-body { padding: 20px 16px; max-width: 680px; margin: 0 auto; width: 100%; padding-bottom: 40px; }
     .quiz-enunciado {
-      font-family: 'Lora', serif; font-size: 15px; line-height: 1.8;
+      font-family: 'Lora', serif; font-size: 16px; line-height: 1.9;
       color: var(--ink); margin-bottom: 24px; text-align: justify;
-      background: white; padding: 20px; border-radius: var(--radius-lg);
+      text-justify: inter-word;
+      background: white; padding: 22px 20px; border-radius: var(--radius-lg);
       border: 1px solid var(--border);
+      hyphens: auto; -webkit-hyphens: auto;
+    }
+    .alternativas-label {
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 10px; padding-left: 2px;
     }
     .quiz-alternativa {
-      display: flex; align-items: flex-start; gap: 12px;
-      padding: 14px; border-radius: var(--radius);
-      border: 1.5px solid var(--border); margin-bottom: 10px;
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 16px; border-radius: var(--radius);
+      border: 1.5px solid var(--border); margin-bottom: 8px;
       cursor: pointer; transition: all 0.15s; background: white;
+      position: relative;
     }
+    .quiz-alternativa:not(.disabled):hover { border-color: var(--ink); background: #f8f7f2; }
     .quiz-alternativa:active:not(.disabled) { transform: scale(0.99); }
-    .quiz-alternativa.selected { border-color: var(--ink); background: #f0f0f8; }
+    .quiz-alternativa.selected { border-color: var(--ink); background: #f0eff8; }
     .quiz-alternativa.correct { border-color: var(--green); background: var(--green-light); }
     .quiz-alternativa.wrong { border-color: var(--red); background: var(--red-light); }
     .quiz-alternativa.disabled { cursor: default; pointer-events: none; }
     .alt-letter {
-      width: 32px; height: 32px; min-width: 32px; border-radius: 50%;
+      width: 34px; height: 34px; min-width: 34px; border-radius: 8px;
       border: 1.5px solid var(--border); display: flex; align-items: center;
-      justify-content: center; font-size: 13px; font-weight: 600; color: var(--muted);
-      font-family: 'DM Sans', sans-serif;
+      justify-content: center; font-size: 14px; font-weight: 700; color: var(--muted);
+      font-family: 'DM Sans', sans-serif; margin-top: 1px;
+      transition: all 0.15s;
     }
-    .quiz-alternativa.selected .alt-letter { background: var(--ink); color: white; border-color: var(--ink); }
+    .quiz-alternativa.selected .alt-letter { background: var(--ink); color: var(--gold); border-color: var(--ink); }
     .quiz-alternativa.correct .alt-letter { background: var(--green); color: white; border-color: var(--green); }
     .quiz-alternativa.wrong .alt-letter { background: var(--red); color: white; border-color: var(--red); }
-    .alt-text { font-size: 14px; line-height: 1.6; color: var(--ink); padding-top: 5px; text-align: justify; }
+    .alt-text {
+      font-size: 14.5px; line-height: 1.7; color: var(--ink);
+      padding-top: 6px; text-align: justify; text-justify: inter-word;
+      hyphens: auto; -webkit-hyphens: auto; flex: 1;
+    }
     .quiz-result {
-      margin-top: 16px; padding: 16px; border-radius: var(--radius-lg); border: 1.5px solid;
+      margin-top: 16px; padding: 18px; border-radius: var(--radius-lg); border: 1.5px solid;
     }
     .quiz-result.ok { background: var(--green-light); border-color: var(--green); }
     .quiz-result.fail { background: var(--red-light); border-color: var(--red); }
-    .quiz-result-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .quiz-result-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
     .quiz-result.ok .quiz-result-title { color: var(--green); }
     .quiz-result.fail .quiz-result-title { color: var(--red); }
-    .quiz-result-text { font-size: 13px; line-height: 1.7; color: var(--ink); font-family: 'Lora', serif; font-style: italic; text-align: justify; }
+    .quiz-result-text {
+      font-size: 14px; line-height: 1.8; color: var(--ink);
+      font-family: 'Lora', serif; text-align: justify;
+      text-justify: inter-word; hyphens: auto; -webkit-hyphens: auto;
+    }
     .quiz-nav { display: flex; gap: 10px; justify-content: space-between; margin-top: 20px; }
     .btn-quiz {
       padding: 12px 20px; border-radius: var(--radius); border: 1.5px solid var(--border);
@@ -506,7 +524,7 @@
     </div>
     <span class="badge badge-gold" id="quiz-dif">médio</span>
   </div>
-  <div class="quiz-body">
+  <div class="quiz-body" lang="pt-BR">
     <div class="quiz-enunciado" id="quiz-enunciado"></div>
     <div id="quiz-alternativas"></div>
     <div id="quiz-result" style="display:none"></div>
@@ -810,7 +828,7 @@ function questaoCardHTML(q) {
   const difClass = q.dificuldade === 'fácil' ? 'badge-green' : q.dificuldade === 'difícil' ? 'badge-red' : 'badge-gold';
   const respondida = historico.find(h => h.questao_id === q.id);
   const statusBadge = respondida ? `<span class="badge ${respondida.acertou ? 'badge-green' : 'badge-red'}">${respondida.acertou ? '✓' : '✗'}</span>` : '';
-  return `<div class="questao-card" onclick="abrirQuiz('${q.id}')">
+  return `<div class="questao-card" onclick="abrirQuiz('${q.id}')" lang="pt-BR">
     <div class="questao-card-top">
       <div class="questao-card-text">${q.enunciado}</div>
       <span class="badge badge-ink">${q.tribunal || '—'}</span>
@@ -889,7 +907,7 @@ function mostrarQuizQuestao(q) {
     { letra: 'E', texto: q.alternativa_e },
   ].filter(a => a.texto);
   const altsEl = document.getElementById('quiz-alternativas');
-  altsEl.innerHTML = alts.map((a, i) => {
+  altsEl.innerHTML = '<div class="alternativas-label">Alternativas</div>' + alts.map((a, i) => {
     return '<div class="quiz-alternativa" id="alt-' + i + '" data-idx="' + i + '" data-letra="' + a.letra + '"><div class="alt-letter">' + a.letra + '</div><div class="alt-text">' + a.texto + '</div></div>';
   }).join('');
   let selectedLetra = null;

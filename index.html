@@ -633,11 +633,17 @@ function mostrarQuizQuestao(q) {
     { letra: 'D', texto: q.alternativa_d },
     { letra: 'E', texto: q.alternativa_e },
   ].filter(a => a.texto);
-  document.getElementById('quiz-alternativas').innerHTML = alts.map((a, i) => `
-    <div class="quiz-alternativa" id="alt-${i}" onclick="responder(${i}, '${a.letra}', '${q.gabarito}', '${q.id}')">
-      <div class="alt-letter">${a.letra}</div>
-      <div class="alt-text">${a.texto}</div>
+  const altsEl = document.getElementById('quiz-alternativas');
+  altsEl.innerHTML = alts.map((a, i) => `
+    <div class="quiz-alternativa" id="alt-\${i}" data-idx="\${i}" data-letra="\${a.letra}">
+      <div class="alt-letter">\${a.letra}</div>
+      <div class="alt-text">\${a.texto}</div>
     </div>`).join('');
+  altsEl.querySelectorAll('.quiz-alternativa').forEach(el => {
+    el.addEventListener('click', () => {
+      responder(parseInt(el.dataset.idx), el.dataset.letra, q.gabarito, q.id);
+    });
+  });
   document.getElementById('quiz-result').style.display = 'none';
   document.getElementById('btn-proxima').style.display = 'none';
   quizAnswered = false;

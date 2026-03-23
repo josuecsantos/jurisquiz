@@ -1107,7 +1107,7 @@ function renderComentario(c) {
       '</div>' +
       '<div class="comment-text">' + escapeHtml(c.texto) + '</div>' +
       '<div class="comment-actions">' +
-        '<button class="comment-action-btn" onclick="iniciarResposta('' + c.id + '', '' + escapeAttr(getNome(c)) + '')">↩ Responder</button>' +
+        '<button class="comment-action-btn" onclick="iniciarResposta(\'' + c.id + '\', \'' + escapeAttr(getNome(c)) + '\')">↩ Responder</button>' +
       '</div>' +
     '</div>' +
     (respostas.length ? '<div class="comment-reply">' + respostas.map(r => renderRespostaComentario(r)).join('') + '</div>' : '') +

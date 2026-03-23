@@ -375,7 +375,10 @@
     <div id="quiz-result" style="display:none"></div>
     <div class="quiz-nav">
       <button class="btn-quiz" onclick="closeQuiz()">← Voltar</button>
-      <button class="btn-quiz primary" id="btn-proxima" style="display:none" onclick="proximaQuestao()">Próxima →</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn-quiz primary" id="btn-confirmar" style="display:none" onclick="confirmarResposta()">Confirmar resposta</button>
+        <button class="btn-quiz primary" id="btn-proxima" style="display:none" onclick="proximaQuestao()">Próxima →</button>
+      </div>
     </div>
   </div>
 </div>
@@ -637,36 +640,55 @@ function mostrarQuizQuestao(q) {
   altsEl.innerHTML = alts.map((a, i) => {
     return '<div class="quiz-alternativa" id="alt-' + i + '" data-idx="' + i + '" data-letra="' + a.letra + '"><div class="alt-letter">' + a.letra + '</div><div class="alt-text">' + a.texto + '</div></div>';
   }).join('');
+  let selectedLetra = null;
   altsEl.querySelectorAll('.quiz-alternativa').forEach(el => {
     el.addEventListener('click', () => {
-      responder(parseInt(el.dataset.idx), el.dataset.letra, q.gabarito, q.id);
+      if (quizAnswered) return;
+      altsEl.querySelectorAll('.quiz-alternativa').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+      selectedLetra = el.dataset.letra;
+      document.getElementById('btn-confirmar').style.display = '';
     });
   });
   document.getElementById('quiz-result').style.display = 'none';
   document.getElementById('btn-proxima').style.display = 'none';
+  document.getElementById('btn-confirmar').style.display = 'none';
   quizAnswered = false;
   document.getElementById('quiz-screen').classList.add('open');
+  window.currentQuestao = q;
+  window.getSelectedLetra = () => selectedLetra;
   window.scrollTo(0, 0);
 }
 
-async function responder(idx, letra, gabarito, questaoId) {
+async function confirmarResposta() {
+  const letra = window.getSelectedLetra ? window.getSelectedLetra() : null;
+  if (!letra) return;
+  const q = window.currentQuestao;
+  if (!q) return;
+  await responder(letra, q.gabarito, q.id);
+}
+
+async function responder(letra, gabarito, questaoId) {
   if (quizAnswered) return;
   quizAnswered = true;
-  const correto = letra === gabarito;
+  const gabaritoTrimmed = (gabarito || '').trim().toUpperCase();
+  const letraTrimmed = (letra || '').trim().toUpperCase();
+  const correto = letraTrimmed === gabaritoTrimmed;
   const alts = document.querySelectorAll('.quiz-alternativa');
-  alts.forEach((el, i) => {
+  alts.forEach(el => {
     el.classList.add('disabled');
-    const altLetra = el.querySelector('.alt-letter').textContent;
-    if (altLetra === gabarito) el.classList.add('correct');
-    else if (i === idx && !correto) el.classList.add('wrong');
+    const altLetra = (el.querySelector('.alt-letter').textContent || '').trim().toUpperCase();
+    if (altLetra === gabaritoTrimmed) el.classList.add('correct');
+    else if (altLetra === letraTrimmed && !correto) el.classList.add('wrong');
   });
   const q = questoes.find(x => x.id === questaoId);
   const resEl = document.getElementById('quiz-result');
   resEl.style.display = 'block';
-  resEl.className = `quiz-result ${correto ? 'ok' : 'fail'}`;
-  resEl.innerHTML = `<div class="quiz-result-title">${correto ? '✓ Correto!' : `✗ Incorreto — gabarito: ${gabarito}`}</div>
-    ${q?.explicacao ? `<div class="quiz-result-text">${q.explicacao}</div>` : ''}`;
+  resEl.className = 'quiz-result ' + (correto ? 'ok' : 'fail');
+  resEl.innerHTML = '<div class="quiz-result-title">' + (correto ? '✓ Correto!' : '✗ Incorreto — gabarito: ' + gabaritoTrimmed) + '</div>' +
+    (q && q.explicacao ? '<div class="quiz-result-text">' + q.explicacao + '</div>' : '');
   document.getElementById('btn-proxima').style.display = '';
+  document.getElementById('btn-confirmar').style.display = 'none';
   await salvarResposta(questaoId, letra, correto);
   await carregarDados();
   renderHome();

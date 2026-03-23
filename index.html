@@ -525,7 +525,7 @@
 const SUPABASE_URL = 'https://medkfofzgzqpkbssyvey.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZGtmb2Z6Z3pxcGtic3N5dmV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMjUyMjAsImV4cCI6MjA4OTgwMTIyMH0.ILkI7BQ2opBAAcsKNnR1do1AftIxkGShsX4IA0NwBgM';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 let questoes = [];
@@ -573,7 +573,7 @@ async function doLogin() {
   if (!email || !pass) { showMsg('Preencha e-mail e senha.'); return; }
   const btn = document.getElementById('btn-login');
   btn.disabled = true; btn.textContent = 'Entrando...';
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Entrar';
   if (error) { showMsg(error.message || 'E-mail ou senha incorretos.'); return; }
   currentUser = { ...data.session, email, nome: '' };
@@ -610,7 +610,7 @@ async function doRegister() {
   if (pass.length < 6) { showMsg('A senha precisa ter pelo menos 6 caracteres.'); return; }
   const btn = document.getElementById('btn-register');
   btn.disabled = true; btn.textContent = 'Enviando...';
-  const { data, error } = await supabase.auth.signUp({ email, password: pass, options: { data: { nome } } });
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nome } } });
   btn.disabled = false; btn.textContent = 'Solicitar acesso';
   if (error) { showMsg(error.message || 'Erro ao cadastrar. Tente novamente.'); return; }
   showMsg('Cadastro realizado! Assim que aprovado, você receberá o acesso. Entre em contato com o administrador.', 'success');
@@ -794,7 +794,7 @@ async function confirmarLimpar() {
   const userId = await getUserId();
   if (!questoesFiltradas.length) return;
   const ids = questoesFiltradas.map(q => q.id);
-  const { error } = await supabase
+  const { error } = await sb
     .from('respostas')
     .delete()
     .eq('usuario_id', userId)

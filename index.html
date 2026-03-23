@@ -289,6 +289,38 @@
     .step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cream2); transition: all 0.2s; }
     .step-dot.active { background: var(--ink); width: 20px; border-radius: 4px; }
 
+    /* ADMIN PANEL */
+    .admin-badge { background: var(--gold); color: var(--ink); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+    .admin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .admin-stat { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 8px; text-align: center; }
+    .admin-stat-num { font-family: 'Lora', serif; font-size: 26px; font-weight: 600; line-height: 1; }
+    .admin-stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .admin-filter { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+    .admin-filter-btn { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: white; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; font-family: 'DM Sans', sans-serif; transition: all 0.15s; color: var(--ink); }
+    .admin-filter-btn.active { background: var(--ink); color: var(--gold); border-color: var(--ink); }
+    .user-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; }
+    .user-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .user-avatar { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: var(--ink); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-email { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-date { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .status-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .status-ativo { background: var(--green-light); color: var(--green); }
+    .status-aguardando { background: var(--gold-light); color: var(--gold-dark); }
+    .status-banido { background: var(--red-light); color: var(--red); }
+    .user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .user-action-btn { padding: 7px 14px; border-radius: var(--radius); border: 1.5px solid var(--border); background: white; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; color: var(--ink); }
+    .user-action-btn:active { transform: scale(0.97); }
+    .btn-aprovar { border-color: var(--green); color: var(--green); }
+    .btn-aprovar:hover { background: var(--green-light); }
+    .btn-banir { border-color: var(--red); color: var(--red); }
+    .btn-banir:hover { background: var(--red-light); }
+    .btn-reativar { border-color: var(--gold-dark); color: var(--gold-dark); }
+    .btn-reativar:hover { background: var(--gold-light); }
+    .admin-search { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 14px; font-family: 'DM Sans', sans-serif; background: white; color: var(--ink); margin-bottom: 12px; }
+    .admin-search:focus { outline: none; border-color: var(--gold); }
+
     /* COMMENTS */
     .comments-section { margin-top: 24px; }
     .comments-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
@@ -331,6 +363,38 @@
     .voltar-filtro { font-size: 12px; color: var(--muted); cursor: pointer; margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px; }
 
     /* LOADING */
+    /* ADMIN PANEL */
+    .admin-badge { background: var(--gold); color: var(--ink); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+    .admin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .admin-stat { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 8px; text-align: center; }
+    .admin-stat-num { font-family: 'Lora', serif; font-size: 26px; font-weight: 600; line-height: 1; }
+    .admin-stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .admin-filter { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+    .admin-filter-btn { padding: 7px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: white; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; font-family: 'DM Sans', sans-serif; transition: all 0.15s; color: var(--ink); }
+    .admin-filter-btn.active { background: var(--ink); color: var(--gold); border-color: var(--ink); }
+    .user-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; }
+    .user-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .user-avatar { width: 40px; height: 40px; min-width: 40px; border-radius: 50%; background: var(--ink); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif; }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-email { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-date { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .status-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+    .status-ativo { background: var(--green-light); color: var(--green); }
+    .status-aguardando { background: var(--gold-light); color: var(--gold-dark); }
+    .status-banido { background: var(--red-light); color: var(--red); }
+    .user-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .user-action-btn { padding: 7px 14px; border-radius: var(--radius); border: 1.5px solid var(--border); background: white; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; color: var(--ink); }
+    .user-action-btn:active { transform: scale(0.97); }
+    .btn-aprovar { border-color: var(--green); color: var(--green); }
+    .btn-aprovar:hover { background: var(--green-light); }
+    .btn-banir { border-color: var(--red); color: var(--red); }
+    .btn-banir:hover { background: var(--red-light); }
+    .btn-reativar { border-color: var(--gold-dark); color: var(--gold-dark); }
+    .btn-reativar:hover { background: var(--gold-light); }
+    .admin-search { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 14px; font-family: 'DM Sans', sans-serif; background: white; color: var(--ink); margin-bottom: 12px; }
+    .admin-search:focus { outline: none; border-color: var(--gold); }
+
     /* COMMENTS */
     .comments-section { margin-top: 24px; }
     .comments-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
@@ -541,6 +605,23 @@
       <div id="revisao-content"></div>
     </div>
 
+    <!-- ADMIN -->
+    <div id="screen-admin" class="screen">
+      <div class="admin-stats">
+        <div class="admin-stat"><div class="admin-stat-num" id="adm-total" style="color:var(--ink)">0</div><div class="admin-stat-label">Total</div></div>
+        <div class="admin-stat"><div class="admin-stat-num" id="adm-aguardando" style="color:var(--gold-dark)">0</div><div class="admin-stat-label">Aguardando</div></div>
+        <div class="admin-stat"><div class="admin-stat-num" id="adm-ativos" style="color:var(--green)">0</div><div class="admin-stat-label">Ativos</div></div>
+      </div>
+      <input class="admin-search" id="admin-search" type="text" placeholder="Buscar por nome ou e-mail..." oninput="renderAdmin()">
+      <div class="admin-filter">
+        <button class="admin-filter-btn active" id="af-todos" onclick="setAdminFilter('todos')">Todos</button>
+        <button class="admin-filter-btn" id="af-aguardando" onclick="setAdminFilter('aguardando')">Aguardando</button>
+        <button class="admin-filter-btn" id="af-ativo" onclick="setAdminFilter('ativo')">Ativos</button>
+        <button class="admin-filter-btn" id="af-banido" onclick="setAdminFilter('banido')">Banidos</button>
+      </div>
+      <div id="admin-users-list"></div>
+    </div>
+
   </div>
   <nav class="bottom-nav">
     <button class="nav-item active" onclick="goTo('home')" id="nav-home">
@@ -558,6 +639,10 @@
     <button class="nav-item" onclick="goTo('revisao')" id="nav-revisao">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
       Revisão
+    </button>
+    <button class="nav-item" onclick="goTo('admin')" id="nav-admin" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Admin
     </button>
   </nav>
 </div>
@@ -713,7 +798,8 @@ function doLogout() {
 async function iniciarApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').classList.add('show');
-  document.getElementById('top-sub').textContent = `Olá, ${currentUser.nome || currentUser.email}`;
+  document.getElementById('top-sub').textContent = 'Olá, ' + (currentUser.nome || currentUser.email);
+  setupAdminNav();
   await carregarDados();
   renderHome();
 }
@@ -751,11 +837,13 @@ function goTo(screen) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('screen-' + screen).classList.add('active');
-  document.getElementById('nav-' + screen).classList.add('active');
+  const navEl = document.getElementById('nav-' + screen);
+  if (navEl) navEl.classList.add('active');
   if (screen === 'home') renderHome();
   if (screen === 'questoes') renderQuestoes();
   if (screen === 'historico') renderHistorico();
   if (screen === 'revisao') renderRevisao();
+  if (screen === 'admin') carregarAdminUsers();
 }
 
 let filtroTribunal = null;
@@ -1169,6 +1257,93 @@ async function enviarComentario() {
   document.getElementById('new-comment-text').value = '';
   cancelarResposta();
   await carregarComentarios(currentQuestaoId);
+}
+
+// ADMIN PANEL
+const ADMIN_EMAILS = ['josueccsantos@gmail.com']; // adicione seus e-mails de admin aqui
+let adminUsers = [];
+let adminFilter = 'todos';
+
+function isAdmin() {
+  return ADMIN_EMAILS.includes(currentUser?.email);
+}
+
+function setupAdminNav() {
+  const navAdmin = document.getElementById('nav-admin');
+  if (isAdmin()) navAdmin.style.display = '';
+  else navAdmin.style.display = 'none';
+}
+
+async function carregarAdminUsers() {
+  const res = await api('usuarios?select=*&order=created_at.desc');
+  adminUsers = await res.json();
+  renderAdmin();
+}
+
+function setAdminFilter(f) {
+  adminFilter = f;
+  document.querySelectorAll('.admin-filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('af-' + f).classList.add('active');
+  renderAdmin();
+}
+
+function renderAdmin() {
+  const search = (document.getElementById('admin-search')?.value || '').toLowerCase();
+  let users = [...adminUsers];
+  if (adminFilter !== 'todos') users = users.filter(u => u.status === adminFilter);
+  if (search) users = users.filter(u => (u.nome || '').toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search));
+
+  const total = adminUsers.length;
+  const aguardando = adminUsers.filter(u => u.status === 'aguardando').length;
+  const ativos = adminUsers.filter(u => u.status === 'ativo').length;
+  document.getElementById('adm-total').textContent = total;
+  document.getElementById('adm-aguardando').textContent = aguardando;
+  document.getElementById('adm-ativos').textContent = ativos;
+
+  const el = document.getElementById('admin-users-list');
+  if (!users.length) {
+    el.innerHTML = '<div class="empty">Nenhum usuário encontrado.</div>';
+    return;
+  }
+  el.innerHTML = users.map(u => userCardHTML(u)).join('');
+}
+
+function userCardHTML(u) {
+  const iniciais = (u.nome || u.email || 'U').substring(0, 2).toUpperCase();
+  const data = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—';
+  const statusClass = 'status-' + (u.status || 'aguardando');
+  const statusLabel = { ativo: 'Ativo', aguardando: 'Aguardando', banido: 'Banido' }[u.status] || u.status;
+  let actions = '';
+  if (u.status === 'aguardando') {
+    actions = '<button class="user-action-btn btn-aprovar" onclick="alterarStatus('' + u.id + '', 'ativo')">✓ Aprovar</button>' +
+              '<button class="user-action-btn btn-banir" onclick="alterarStatus('' + u.id + '', 'banido')">✗ Banir</button>';
+  } else if (u.status === 'ativo') {
+    actions = '<button class="user-action-btn btn-banir" onclick="alterarStatus('' + u.id + '', 'banido')">✗ Banir</button>';
+  } else if (u.status === 'banido') {
+    actions = '<button class="user-action-btn btn-reativar" onclick="alterarStatus('' + u.id + '', 'ativo')">↩ Reativar</button>';
+  }
+  return '<div class="user-card">' +
+    '<div class="user-card-top">' +
+      '<div class="user-avatar">' + iniciais + '</div>' +
+      '<div class="user-info">' +
+        '<div class="user-name">' + (u.nome || '—') + '</div>' +
+        '<div class="user-email">' + (u.email || '—') + '</div>' +
+      '</div>' +
+      '<div style="text-align:right">' +
+        '<div class="status-badge ' + statusClass + '">' + statusLabel + '</div>' +
+        '<div class="user-date" style="margin-top:4px">' + data + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="user-actions">' + actions + '</div>' +
+  '</div>';
+}
+
+async function alterarStatus(userId, novoStatus) {
+  const acao = { ativo: 'aprovar', banido: 'banir', aguardando: 'recolocar em espera' }[novoStatus];
+  if (!confirm('Confirma ' + acao + ' este usuário?')) return;
+  const { error } = await sb.from('usuarios').update({ status: novoStatus }).eq('id', userId);
+  if (error) { alert('Erro: ' + error.message); return; }
+  await carregarAdminUsers();
 }
 
 if ('serviceWorker' in navigator) {

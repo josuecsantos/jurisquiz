@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JurisQuiz — Jurisprudência que aprova</title>
+  <meta name="description" content="Domine a jurisprudência do STJ e STF com questões no estilo FGV, gabarito comentado com resumo dos informativos e estudo por repetição espaçada.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #0e0e1a;
+      --ink2: #1a1a2e;
+      --gold: #c9a84c;
+      --gold-light: #f0d98a;
+      --gold-pale: #faf5e4;
+      --cream: #faf8f3;
+      --white: #ffffff;
+      --muted: #6b6b7e;
+      --border: rgba(14,14,26,0.1);
+      --green: #1a5c3e;
+      --green-light: #d4edda;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 18px 5%;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(14,14,26,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(201,168,76,0.15);
+    }
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px; font-weight: 700;
+      color: var(--gold); letter-spacing: -0.5px;
+    }
+    .nav-cta {
+      background: var(--gold); color: var(--ink);
+      padding: 10px 24px; border-radius: 50px;
+      font-size: 14px; font-weight: 600;
+      text-decoration: none; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .nav-cta:hover { background: var(--gold-light); transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      background: var(--ink2);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 5% 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,168,76,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.3);
+      color: var(--gold); font-size: 12px; font-weight: 600;
+      padding: 6px 16px; border-radius: 50px;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      margin-bottom: 32px;
+      animation: fadeUp 0.8s ease both;
+    }
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(38px, 7vw, 80px);
+      font-weight: 900; line-height: 1.08;
+      color: white; max-width: 900px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.8s 0.1s ease both;
+    }
+    .hero h1 em {
+      font-style: italic; color: var(--gold);
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px);
+      color: rgba(255,255,255,0.6);
+      max-width: 580px; line-height: 1.7;
+      margin-bottom: 48px;
+      animation: fadeUp 0.8s 0.2s ease both;
+      font-weight: 300;
+    }
+    .hero-actions {
+      display: flex; flex-wrap: wrap; gap: 14px;
+      justify-content: center;
+      animation: fadeUp 0.8s 0.3s ease both;
+    }
+    .btn-hero-primary {
+      background: var(--gold); color: var(--ink);
+      padding: 16px 36px; border-radius: 50px;
+      font-size: 16px; font-weight: 700;
+      text-decoration: none; transition: all 0.2s;
+      box-shadow: 0 8px 32px rgba(201,168,76,0.35);
+    }
+    .btn-hero-primary:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(201,168,76,0.45); }
+    .btn-hero-secondary {
+      background: transparent; color: rgba(255,255,255,0.7);
+      padding: 16px 36px; border-radius: 50px;
+      font-size: 16px; font-weight: 500;
+      text-decoration: none; transition: all 0.2s;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .btn-hero-secondary:hover { color: white; border-color: rgba(255,255,255,0.5); }
+    .hero-stats {
+      display: flex; gap: 48px; margin-top: 64px;
+      animation: fadeUp 0.8s 0.4s ease both;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 36px; font-weight: 700; color: var(--gold);
+      line-height: 1;
+    }
+    .hero-stat-label { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 6px; font-weight: 300; }
+    .hero-divider { width: 1px; background: rgba(255,255,255,0.1); }
+
+    /* ── PROBLEMA ── */
+    .problema {
+      background: white;
+      padding: 100px 5%;
+      text-align: center;
+    }
+    .section-tag {
+      display: inline-block;
+      font-size: 11px; font-weight: 600; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 700; line-height: 1.2;
+      max-width: 700px; margin: 0 auto 20px;
+    }
+    .section-sub {
+      font-size: 17px; color: var(--muted);
+      max-width: 560px; margin: 0 auto 60px;
+      line-height: 1.7; font-weight: 300;
+    }
+    .dores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px; max-width: 1000px; margin: 0 auto;
+    }
+    .dor-card {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px;
+      text-align: left;
+    }
+    .dor-icon { font-size: 28px; margin-bottom: 14px; }
+    .dor-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .dor-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ── SOLUÇÃO ── */
+    .solucao {
+      background: var(--ink2);
+      padding: 100px 5%;
+      text-align: center;
+    }
+    .solucao .section-title { color: white; }
+    .solucao .section-sub { color: rgba(255,255,255,0.5); }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px; max-width: 1100px; margin: 0 auto;
+    }
+    .feature-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(201,168,76,0.15);
+      border-radius: 20px; padding: 36px 28px;
+      text-align: left; transition: all 0.3s;
+    }
+    .feature-card:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(201,168,76,0.35);
+      transform: translateY(-4px);
+    }
+    .feature-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 48px; font-weight: 900;
+      color: rgba(201,168,76,0.2); line-height: 1;
+      margin-bottom: 16px;
+    }
+    .feature-title {
+      font-size: 18px; font-weight: 600;
+      color: white; margin-bottom: 10px;
+    }
+    .feature-text {
+      font-size: 14px; color: rgba(255,255,255,0.5);
+      line-height: 1.7; font-weight: 300;
+    }
+    .feature-badge {
+      display: inline-block; margin-top: 16px;
+      background: rgba(201,168,76,0.15);
+      color: var(--gold); font-size: 11px;
+      font-weight: 600; padding: 4px 12px;
+      border-radius: 50px; letter-spacing: 0.5px;
+    }
+
+    /* ── MÉTODO ── */
+    .metodo {
+      background: var(--cream);
+      padding: 100px 5%;
+    }
+    .metodo-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: center;
+    }
+    .metodo-content { }
+    .metodo-content .section-tag { display: block; margin-bottom: 16px; }
+    .metodo-content .section-title { text-align: left; margin: 0 0 20px; }
+    .metodo-content p {
+      font-size: 16px; color: var(--muted);
+      line-height: 1.8; margin-bottom: 16px; font-weight: 300;
+    }
+    .metodo-content strong { color: var(--ink); font-weight: 600; }
+    .metodo-visual {
+      background: var(--ink2);
+      border-radius: 24px; padding: 40px 32px;
+      border: 1px solid rgba(201,168,76,0.2);
+    }
+    .metodo-step {
+      display: flex; gap: 16px; margin-bottom: 28px;
+      align-items: flex-start;
+    }
+    .metodo-step:last-child { margin-bottom: 0; }
+    .metodo-step-num {
+      width: 36px; height: 36px; min-width: 36px;
+      border-radius: 10px;
+      background: rgba(201,168,76,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 16px; font-weight: 700; color: var(--gold);
+    }
+    .metodo-step-title {
+      font-size: 15px; font-weight: 600; color: white;
+      margin-bottom: 4px;
+    }
+    .metodo-step-text {
+      font-size: 13px; color: rgba(255,255,255,0.45);
+      line-height: 1.6; font-weight: 300;
+    }
+
+    /* ── DEPOIMENTOS ── */
+    .depoimentos {
+      background: white;
+      padding: 100px 5%;
+      text-align: center;
+    }
+    .depo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px; max-width: 1000px; margin: 0 auto;
+    }
+    .depo-card {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 32px;
+      text-align: left;
+    }
+    .depo-stars { color: var(--gold); font-size: 18px; margin-bottom: 16px; letter-spacing: 2px; }
+    .depo-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 15px; line-height: 1.8;
+      color: var(--ink); margin-bottom: 20px;
+      font-style: italic;
+    }
+    .depo-autor { display: flex; align-items: center; gap: 12px; }
+    .depo-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--ink2); color: var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+    }
+    .depo-nome { font-size: 14px; font-weight: 600; }
+    .depo-cargo { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .depo-disclaimer {
+      font-size: 11px; color: var(--muted);
+      margin-top: 32px; font-style: italic;
+    }
+
+    /* ── PREÇOS ── */
+    .precos {
+      background: var(--ink2);
+      padding: 100px 5%;
+      text-align: center;
+    }
+    .precos .section-title { color: white; }
+    .precos .section-sub { color: rgba(255,255,255,0.5); }
+    .precos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px; max-width: 720px; margin: 0 auto;
+    }
+    .preco-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px; padding: 40px 32px;
+      position: relative; transition: all 0.3s;
+    }
+    .preco-card.destaque {
+      background: var(--gold);
+      border-color: var(--gold);
+    }
+    .preco-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: var(--gold);
+      font-size: 11px; font-weight: 700; padding: 4px 16px;
+      border-radius: 50px; letter-spacing: 1px; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .preco-nome {
+      font-size: 14px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: rgba(255,255,255,0.5);
+      margin-bottom: 20px;
+    }
+    .preco-card.destaque .preco-nome { color: var(--ink); }
+    .preco-valor {
+      font-family: 'Playfair Display', serif;
+      font-size: 52px; font-weight: 900; color: white;
+      line-height: 1;
+    }
+    .preco-card.destaque .preco-valor { color: var(--ink); }
+    .preco-periodo {
+      font-size: 14px; color: rgba(255,255,255,0.4);
+      margin-bottom: 8px; margin-top: 4px;
+    }
+    .preco-card.destaque .preco-periodo { color: rgba(14,14,26,0.6); }
+    .preco-equivalente {
+      font-size: 13px; color: rgba(255,255,255,0.3);
+      margin-bottom: 32px;
+    }
+    .preco-card.destaque .preco-equivalente { color: rgba(14,14,26,0.5); }
+    .preco-lista { list-style: none; margin-bottom: 32px; text-align: left; }
+    .preco-lista li {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; color: rgba(255,255,255,0.7);
+      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .preco-card.destaque .preco-lista li {
+      color: var(--ink); border-color: rgba(14,14,26,0.1);
+    }
+    .preco-lista li::before { content: '✓'; color: var(--gold); font-weight: 700; }
+    .preco-card.destaque .preco-lista li::before { color: var(--ink); }
+    .btn-preco {
+      display: block; width: 100%;
+      padding: 14px; border-radius: 50px;
+      font-size: 15px; font-weight: 700;
+      text-decoration: none; text-align: center;
+      transition: all 0.2s;
+    }
+    .btn-preco-light {
+      background: transparent; color: white;
+      border: 1.5px solid rgba(255,255,255,0.25);
+    }
+    .btn-preco-light:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-preco-dark {
+      background: var(--ink); color: var(--gold);
+      border: none;
+    }
+    .btn-preco-dark:hover { background: var(--ink2); transform: translateY(-2px); }
+    .garantia {
+      margin-top: 48px;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      color: rgba(255,255,255,0.4); font-size: 14px;
+    }
+    .garantia-icon { font-size: 24px; }
+
+    /* ── FAQ ── */
+    .faq {
+      background: var(--cream);
+      padding: 100px 5%;
+    }
+    .faq-inner { max-width: 720px; margin: 0 auto; }
+    .faq-inner .section-tag { display: block; text-align: center; }
+    .faq-inner .section-title { text-align: center; margin-bottom: 48px; }
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 24px 0;
+    }
+    .faq-pergunta {
+      font-size: 16px; font-weight: 600; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; user-select: none;
+    }
+    .faq-pergunta::after {
+      content: '+'; font-size: 22px; color: var(--gold);
+      font-weight: 300; flex-shrink: 0; transition: transform 0.2s;
+    }
+    .faq-item.open .faq-pergunta::after { transform: rotate(45deg); }
+    .faq-resposta {
+      font-size: 15px; color: var(--muted); line-height: 1.8;
+      margin-top: 0; max-height: 0; overflow: hidden;
+      transition: all 0.3s ease; font-weight: 300;
+    }
+    .faq-item.open .faq-resposta { margin-top: 14px; max-height: 300px; }
+
+    /* ── CTA FINAL ── */
+    .cta-final {
+      background: var(--ink2);
+      padding: 120px 5%;
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .cta-final::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(201,168,76,0.1) 0%, transparent 70%);
+    }
+    .cta-final h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(32px, 5vw, 60px);
+      font-weight: 900; color: white;
+      max-width: 700px; margin: 0 auto 20px;
+      line-height: 1.15;
+    }
+    .cta-final h2 em { color: var(--gold); font-style: italic; }
+    .cta-final p {
+      font-size: 18px; color: rgba(255,255,255,0.5);
+      max-width: 480px; margin: 0 auto 48px;
+      font-weight: 300; line-height: 1.7;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--ink);
+      padding: 40px 5%;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .footer-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px; color: var(--gold);
+      margin-bottom: 12px;
+    }
+    .footer-text {
+      font-size: 13px; color: rgba(255,255,255,0.25);
+      line-height: 1.6;
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .reveal {
+      opacity: 0; transform: translateY(32px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .metodo-inner { grid-template-columns: 1fr; gap: 48px; }
+      .hero-divider { display: none; }
+      .hero-stats { gap: 32px; }
+      nav { padding: 14px 5%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">JurisQuiz</div>
+  <a href="https://pay.hotmart.com/SEU-LINK-AQUI" class="nav-cta">Começar agora</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    ⚖️ Foco total em magistratura · FGV
+  </div>
+  <h1>A jurisprudência que a FGV <em>cobra nas provas</em>, do jeito que sua mente <em>retém</em></h1>
+  <p class="hero-sub">Questões do STJ e STF no estilo da banca, com gabarito comentado em 5 minutos e método comprovado por aprovados nos maiores concursos do país.</p>
+  <div class="hero-actions">
+    <a href="#precos" class="btn-hero-primary">Quero meu acesso →</a>
+    <a href="#como-funciona" class="btn-hero-secondary">Ver como funciona</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-num">STJ</div>
+      <div class="hero-stat-label">e STF</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">5min</div>
+      <div class="hero-stat-label">por informativo</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">FGV</div>
+      <div class="hero-stat-label">linguagem da banca</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">7 dias</div>
+      <div class="hero-stat-label">de garantia</div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEMA -->
+<section class="problema">
+  <div class="section-tag">O problema</div>
+  <h2 class="section-title">Estudar jurisprudência do jeito errado custa a sua aprovação</h2>
+  <p class="section-sub">A maioria dos concurseiros lê os informativos de cabo a rabo — e não retém nada. A FGV não pergunta o que está no informativo. Pergunta se você sabe <em>aplicar</em>.</p>
+  <div class="dores-grid reveal">
+    <div class="dor-card">
+      <div class="dor-icon">📚</div>
+      <div class="dor-title">Informativos intermináveis</div>
+      <div class="dor-text">Dezenas de páginas por semana, impossível acompanhar tudo sem um método de filtragem eficiente.</div>
+    </div>
+    <div class="dor-card">
+      <div class="dor-icon">😵</div>
+      <div class="dor-title">Leitura passiva não retém</div>
+      <div class="dor-text">Ler e reler não basta. A memória de longo prazo exige prática ativa — e a ciência comprova isso.</div>
+    </div>
+    <div class="dor-card">
+      <div class="dor-icon">🎯</div>
+      <div class="dor-title">Banca com linguagem própria</div>
+      <div class="dor-text">A FGV tem um jeito específico de perguntar. Estudar sem conhecer o estilo da banca é estudar no escuro.</div>
+    </div>
+    <div class="dor-card">
+      <div class="dor-icon">📉</div>
+      <div class="dor-title">Sem saber onde está errando</div>
+      <div class="dor-text">Sem histórico de desempenho, você não sabe quais temas precisam de mais atenção e continua errando os mesmos pontos.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUÇÃO -->
+<section class="solucao" id="como-funciona">
+  <div class="section-tag" style="color:var(--gold)">A solução</div>
+  <h2 class="section-title" style="color:white;max-width:800px;margin:0 auto 16px">Tudo que você precisa para dominar a jurisprudência, em um único lugar</h2>
+  <p class="section-sub">Método estruturado, questões no estilo FGV e resumos que cabem na sua rotina.</p>
+  <div class="features-grid reveal">
+    <div class="feature-card">
+      <div class="feature-num">01</div>
+      <div class="feature-title">Questões no estilo FGV</div>
+      <div class="feature-text">Cada questão foi elaborada com a linguagem, estrutura e pegadinhas típicas da banca. Você treina exatamente o que vai enfrentar na prova.</div>
+      <span class="feature-badge">STJ · STF</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">02</div>
+      <div class="feature-title">Gabarito em 5 minutos</div>
+      <div class="feature-text">O gabarito comentado é um resumo direto do informativo — os pontos principais para memorização, sem enrolação. Ideal para quem tem pouco tempo.</div>
+      <span class="feature-badge">Resumo dos informativos</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">03</div>
+      <div class="feature-title">Estudo por questões</div>
+      <div class="feature-text">Comprovado por aprovados nos maiores concursos: resolver questões fixa muito mais que leitura passiva. Cada erro vira aprendizado real.</div>
+      <span class="feature-badge">Memorização ativa</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">04</div>
+      <div class="feature-title">Histórico de desempenho</div>
+      <div class="feature-text">Saiba exatamente onde está acertando e errando por matéria, tribunal e dificuldade. Estude com inteligência, não com esforço cego.</div>
+      <span class="feature-badge">Por matéria e tribunal</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">05</div>
+      <div class="feature-title">Questões novas toda semana</div>
+      <div class="feature-text">Novos informativos do STJ e STF viram questões toda semana. Você sempre estuda jurisprudência atual — a que a banca vai cobrar.</div>
+      <span class="feature-badge">Atualizado semanalmente</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">06</div>
+      <div class="feature-title">Discussão com a turma</div>
+      <div class="feature-text">Cada questão tem um espaço de comentários. Debata fundamentos, tire dúvidas e aprenda com outros concurseiros no mesmo caminho.</div>
+      <span class="feature-badge">Comunidade ativa</span>
+    </div>
+  </div>
+</section>
+
+<!-- MÉTODO -->
+<section class="metodo">
+  <div class="metodo-inner">
+    <div class="metodo-content reveal">
+      <span class="section-tag">O método</span>
+      <h2 class="section-title">Por que estudar por questões funciona?</h2>
+      <p>Pesquisas em neurociência cognitiva mostram que <strong>recuperar ativamente uma informação</strong> grava muito mais do que reler. Cada vez que você tenta responder uma questão — acertando ou errando — sua mente consolida aquele conhecimento.</p>
+      <p>Aprovados em concursos de alto nível como TJ-SP, TRF e magistratura estadual relatam que <strong>as últimas semanas antes da prova foram de questões</strong>, não de leitura. O JurisQuiz coloca esse método na palma da sua mão, com foco total na linguagem FGV.</p>
+    </div>
+    <div class="metodo-visual reveal">
+      <div class="metodo-step">
+        <div class="metodo-step-num">1</div>
+        <div>
+          <div class="metodo-step-title">Escolha tribunal e matéria</div>
+          <div class="metodo-step-text">Filtre por STJ, STF ou todos os tribunais. Selecione a matéria que precisa reforçar.</div>
+        </div>
+      </div>
+      <div class="metodo-step">
+        <div class="metodo-step-num">2</div>
+        <div>
+          <div class="metodo-step-title">Resolva a questão</div>
+          <div class="metodo-step-text">Leia o enunciado, analise as alternativas e marque sua resposta — sem ver o gabarito antes.</div>
+        </div>
+      </div>
+      <div class="metodo-step">
+        <div class="metodo-step-num">3</div>
+        <div>
+          <div class="metodo-step-title">Leia o gabarito comentado</div>
+          <div class="metodo-step-text">Em 5 minutos, absorva o fundamento do informativo e entenda por que cada alternativa está certa ou errada.</div>
+        </div>
+      </div>
+      <div class="metodo-step">
+        <div class="metodo-step-num">4</div>
+        <div>
+          <div class="metodo-step-title">Revise seus erros</div>
+          <div class="metodo-step-text">A aba de revisão reúne automaticamente tudo que você errou. Volte nelas até dominar.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEPOIMENTOS -->
+<section class="depoimentos">
+  <div class="section-tag">Depoimentos</div>
+  <h2 class="section-title">O que dizem os concurseiros</h2>
+  <p class="section-sub">Resultados reais de quem estuda com método.</p>
+  <div class="depo-grid reveal">
+    <div class="depo-card">
+      <div class="depo-stars">★★★★★</div>
+      <p class="depo-text">"Em 30 dias usando o JurisQuiz, meu aproveitamento em jurisprudência na simulação passou de 42% para 71%. O gabarito comentado é cirúrgico — vai direto ao que importa."</p>
+      <div class="depo-autor">
+        <div class="depo-avatar">MF</div>
+        <div>
+          <div class="depo-nome">Marcos F.</div>
+          <div class="depo-cargo">Concurseiro · Magistratura SP</div>
+        </div>
+      </div>
+    </div>
+    <div class="depo-card">
+      <div class="depo-stars">★★★★★</div>
+      <p class="depo-text">"Finalmente uma plataforma que fala a língua da FGV. As questões têm o mesmo padrão da banca e os comentários explicam o raciocínio por trás de cada alternativa."</p>
+      <div class="depo-autor">
+        <div class="depo-avatar">AL</div>
+        <div>
+          <div class="depo-nome">Ana L.</div>
+          <div class="depo-cargo">Advogada · Pós-graduanda em Direito Público</div>
+        </div>
+      </div>
+    </div>
+    <div class="depo-card">
+      <div class="depo-stars">★★★★★</div>
+      <p class="depo-text">"Lia informativos há meses e não conseguia fixar. Com o JurisQuiz, em 10 minutos por dia resolvo questões e já sei exatamente o que vai cair. Mudou minha rotina de estudos."</p>
+      <div class="depo-autor">
+        <div class="depo-avatar">RB</div>
+        <div>
+          <div class="depo-nome">Rafael B.</div>
+          <div class="depo-cargo">Juiz substituto aprovado · TJ-MG</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="depo-disclaimer">* Depoimentos ilustrativos de perfis típicos de usuários.</p>
+</section>
+
+<!-- PREÇOS -->
+<section class="precos" id="precos">
+  <div class="section-tag" style="color:var(--gold)">Planos</div>
+  <h2 class="section-title" style="color:white">Invista menos que um café por dia</h2>
+  <p class="section-sub">Acesso completo a todas as questões, gabarito comentado e histórico de desempenho.</p>
+  <div class="precos-grid reveal">
+    <div class="preco-card">
+      <div class="preco-nome">Mensal</div>
+      <div class="preco-valor">R$11<span style="font-size:24px">,99</span></div>
+      <div class="preco-periodo">por mês</div>
+      <div class="preco-equivalente">Menos de R$0,40 por dia</div>
+      <ul class="preco-lista">
+        <li>Todas as questões STJ e STF</li>
+        <li>Gabarito comentado completo</li>
+        <li>Histórico de desempenho</li>
+        <li>Questões novas toda semana</li>
+        <li>Comentários e discussão</li>
+        <li>7 dias de garantia</li>
+      </ul>
+      <a href="https://pay.hotmart.com/SEU-LINK-AQUI" class="btn-preco btn-preco-light">Assinar mensal</a>
+    </div>
+    <div class="preco-card destaque">
+      <div class="preco-badge">Mais econômico</div>
+      <div class="preco-nome" style="color:var(--ink)">Anual</div>
+      <div class="preco-valor" style="color:var(--ink)">R$93<span style="font-size:24px;color:var(--ink)">,49</span></div>
+      <div class="preco-periodo" style="color:rgba(14,14,26,0.6)">pagamento único</div>
+      <div class="preco-equivalente" style="color:rgba(14,14,26,0.5)">Equivale a R$7,79/mês · 35% de desconto</div>
+      <ul class="preco-lista">
+        <li>Tudo do plano mensal</li>
+        <li>12 meses de acesso garantido</li>
+        <li>Economia de R$50 no ano</li>
+        <li>Prioridade em novos recursos</li>
+        <li>Questões novas toda semana</li>
+        <li>7 dias de garantia</li>
+      </ul>
+      <a href="https://pay.hotmart.com/SEU-LINK-AQUI" class="btn-preco btn-preco-dark">Assinar anual →</a>
+    </div>
+  </div>
+  <div class="garantia reveal">
+    <span class="garantia-icon">🛡️</span>
+    <span>Garantia de 7 dias — não gostou, devolvemos 100% do valor, sem burocracia.</span>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq">
+  <div class="faq-inner">
+    <div class="section-tag">Dúvidas frequentes</div>
+    <h2 class="section-title">Perguntas frequentes</h2>
+
+    <div class="faq-item">
+      <div class="faq-pergunta" onclick="toggleFaq(this)">Como funciona o acesso após o pagamento?</div>
+      <div class="faq-resposta">Após a confirmação do pagamento, seu acesso é liberado automaticamente em instantes. Você receberá um e-mail com as instruções para criar sua conta e começar a estudar imediatamente.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-pergunta" onclick="toggleFaq(this)">Posso cancelar quando quiser?</div>
+      <div class="faq-resposta">Sim, no plano mensal você pode cancelar a qualquer momento sem multa. No plano anual, você tem acesso garantido pelos 12 meses pagos. Além disso, ambos os planos têm garantia de 7 dias para reembolso total.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-pergunta" onclick="toggleFaq(this)">As questões são atualizadas com qual frequência?</div>
+      <div class="faq-resposta">Novas questões são adicionadas toda semana, acompanhando os informativos mais recentes do STJ e do STF. Você sempre terá acesso à jurisprudência que a banca pode cobrar nas próximas provas.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-pergunta" onclick="toggleFaq(this)">O app funciona no celular?</div>
+      <div class="faq-resposta">Sim! O JurisQuiz é um PWA (Progressive Web App), o que significa que funciona perfeitamente no celular, tablet e computador. Você pode até instalar no seu celular como se fosse um app nativo, sem precisar de loja de aplicativos.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-pergunta" onclick="toggleFaq(this)">O foco é somente em magistratura?</div>
+      <div class="faq-resposta">O foco principal é na linguagem e no estilo da banca FGV, usada nos concursos de magistratura estadual. Mas as questões de jurisprudência do STJ e STF são relevantes para praticamente qualquer concurso jurídico de alto nível.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-pergunta" onclick="toggleFaq(this)">Posso trocar de plano depois?</div>
+      <div class="faq-resposta">Sim! Se você começou com o plano mensal e quiser migrar para o anual (mais econômico), basta entrar em contato. Faremos o ajuste proporcionalmente.</div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <h2>Sua aprovação começa com a <em>jurisprudência certa</em></h2>
+  <p>Menos de R$0,40 por dia. Acesso imediato. 7 dias de garantia.</p>
+  <a href="#precos" class="btn-hero-primary" style="font-size:18px;padding:18px 48px">Quero meu acesso agora →</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">JurisQuiz</div>
+  <p class="footer-text">
+    Jurisprudência dos tribunais superiores no estilo FGV.<br>
+    Questões que aprovam. Método que funciona.
+  </p>
+</footer>
+
+<script>
+  // FAQ toggle
+  function toggleFaq(el) {
+    const item = el.parentElement;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

@@ -446,6 +446,26 @@
     .btn-comment:active { transform: scale(0.97); }
     .btn-comment:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* REPORT BUTTON */
+    .btn-report {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 12px 16px;
+      border-radius: var(--radius);
+      border: 1.5px solid var(--red);
+      background: white;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 500; color: var(--ink);
+      transition: all 0.15s; text-align: left;
+    }
+    .btn-report:hover { background: var(--red-light); color: var(--red); }
+    .btn-report:active { transform: scale(0.98); }
+    .btn-report-icon {
+      width: 32px; height: 32px; min-width: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--ink) 40%, var(--red));
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+    }
+
     /* FILTER BUTTONS */
     .filtro-status { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
     .filtro-btn {
@@ -771,6 +791,52 @@
           <button class="btn-comment" onclick="enviarComentario()">Comentar</button>
         </div>
       </div>
+
+      <!-- REPORT BUTTON -->
+      <div id="report-section" style="display:none; margin-top:16px; margin-bottom:8px;">
+        <button class="btn-report" onclick="abrirReport()">
+          <div class="btn-report-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <span>Reportar problema nesta questão</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REPORT -->
+<div class="modal-overlay hidden" id="modal-report">
+  <div class="modal" style="max-width:480px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="width:40px;height:40px;min-width:40px;border-radius:10px;background:linear-gradient(135deg,#1a1a2e 60%,#9b2335);display:flex;align-items:center;justify-content:center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="modal-title" style="margin:0;font-size:16px">Reportar problema</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Esta questão será identificada no e-mail</div>
+      </div>
+    </div>
+    <div class="modal-form-group">
+      <label class="modal-label">Descreva o problema</label>
+      <textarea class="modal-textarea" id="report-texto" placeholder="Ex: O gabarito está errado, a alternativa C deveria ser a correta porque..." style="min-height:120px"></textarea>
+    </div>
+    <div id="report-msg" style="display:none;font-size:13px;padding:10px;border-radius:8px;margin-bottom:12px"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="fecharReport()">Cancelar</button>
+      <button class="btn-modal-save" id="btn-report-send" onclick="enviarReport()" style="background:var(--red)">
+        <span style="display:flex;align-items:center;gap:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Enviar
+        </span>
+      </button>
     </div>
   </div>
 </div>
@@ -1373,6 +1439,7 @@ async function mostrarQuizQuestao(q) {
   document.getElementById('btn-proxima').style.display = 'none';
   document.getElementById('btn-confirmar').style.display = 'none';
   document.getElementById('comments-section').style.display = 'none';
+  document.getElementById('report-section').style.display = 'none';
   document.getElementById('comments-list').innerHTML = '';
   quizAnswered = false;
   document.getElementById('quiz-screen').classList.add('open');
@@ -1455,6 +1522,7 @@ async function carregarComentarios(questaoId) {
   comentarios = await res.json();
   renderComentarios();
   document.getElementById('comments-section').style.display = 'block';
+  document.getElementById('report-section').style.display = 'block';
 }
 
 function renderComentarios() {
@@ -1722,6 +1790,94 @@ async function excluirQuestao(id) {
   renderAdminQuestoes();
 }
 
+// ─── REPORT PROBLEMA ───────────────────────────────────────────────────────
+function abrirReport() {
+  document.getElementById('report-texto').value = '';
+  const msgEl = document.getElementById('report-msg');
+  msgEl.style.display = 'none';
+  document.getElementById('modal-report').classList.remove('hidden');
+  setTimeout(() => document.getElementById('report-texto').focus(), 100);
+}
+
+function fecharReport() {
+  document.getElementById('modal-report').classList.add('hidden');
+}
+
+async function enviarReport() {
+  const texto = document.getElementById('report-texto').value.trim();
+  if (!texto) { alert('Descreva o problema antes de enviar.'); return; }
+
+  const btn = document.getElementById('btn-report-send');
+  btn.disabled = true;
+  btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg>Enviando...</span>';
+
+  const q = window.currentQuestao;
+  const questaoInfo = q ? `
+Questão ID: ${q.id}
+Tribunal: ${q.tribunal || '—'}
+Tema: ${q.tema || '—'}
+Enunciado: ${q.enunciado?.substring(0, 200)}...
+Gabarito: ${q.gabarito || '—'}` : 'Questão não identificada';
+
+  const emailBody = `
+Novo reporte de problema no JurisQuiz
+
+━━━━━━━━━━━━━━━━━━━━━━
+USUÁRIO
+━━━━━━━━━━━━━━━━━━━━━━
+Nome: ${currentUser.nome || '—'}
+E-mail: ${currentUser.email}
+
+━━━━━━━━━━━━━━━━━━━━━━
+QUESTÃO REPORTADA
+━━━━━━━━━━━━━━━━━━━━━━
+${questaoInfo}
+
+━━━━━━━━━━━━━━━━━━━━━━
+DESCRIÇÃO DO PROBLEMA
+━━━━━━━━━━━━━━━━━━━━━━
+${texto}
+  `.trim();
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer re_ZsKmsTEp_3KG6cncSK6EuXsnuXMZ5ovJ5'
+      },
+      body: JSON.stringify({
+        from: 'JurisQuiz <onboarding@resend.dev>',
+        to: ['josueccsantos@gmail.com'],
+        subject: `⚠️ Reporte de problema — ${q?.tribunal || 'JurisQuiz'}`,
+        text: emailBody,
+        reply_to: currentUser.email
+      })
+    });
+
+    const msgEl = document.getElementById('report-msg');
+    if (res.ok) {
+      msgEl.textContent = 'Reporte enviado com sucesso! Você será contactado em breve.';
+      msgEl.style.background = 'var(--green-light)';
+      msgEl.style.color = 'var(--green)';
+      msgEl.style.display = 'block';
+      document.getElementById('report-texto').value = '';
+      setTimeout(() => fecharReport(), 2500);
+    } else {
+      throw new Error('Falha no envio');
+    }
+  } catch(e) {
+    const msgEl = document.getElementById('report-msg');
+    msgEl.textContent = 'Erro ao enviar. Tente novamente ou entre em contato diretamente.';
+    msgEl.style.background = 'var(--red-light)';
+    msgEl.style.color = 'var(--red)';
+    msgEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Enviar</span>';
+}
+
 // ─── SERVICE WORKER & KEYBOARD ─────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -1731,9 +1887,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('tab-login').style.display !== 'none') doLogin();
 });
 
-// Fecha modal ao clicar fora
+// Fecha modais ao clicar fora
 document.getElementById('modal-questao').addEventListener('click', function(e) {
   if (e.target === this) fecharModalQuestao();
+});
+document.getElementById('modal-report').addEventListener('click', function(e) {
+  if (e.target === this) fecharReport();
 });
 
 // ─── INICIALIZAÇÃO ─────────────────────────────────────────────────────────

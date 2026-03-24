@@ -1840,18 +1840,17 @@ ${texto}
   `.trim();
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://medkfofzgzqpkbssyvey.supabase.co/functions/v1/clever-action', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer re_ZsKmsTEp_3KG6cncSK6EuXsnuXMZ5ovJ5'
+        'apikey': SUPABASE_KEY
       },
       body: JSON.stringify({
-        from: 'JurisQuiz <onboarding@resend.dev>',
-        to: ['josueccsantos@gmail.com'],
-        subject: `⚠️ Reporte de problema — ${q?.tribunal || 'JurisQuiz'}`,
-        text: emailBody,
-        reply_to: currentUser.email
+        tipo: 'reporte',
+        nome: currentUser.nome || '—',
+        email: currentUser.email,
+        mensagem: emailBody
       })
     });
 

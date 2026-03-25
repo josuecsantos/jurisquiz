@@ -53,6 +53,14 @@
       white-space: nowrap;
     }
     .nav-cta:hover { background: var(--gold-light); transform: translateY(-1px); }
+    .nav-login {
+      color: rgba(255,255,255,0.5);
+      padding: 10px 16px; border-radius: 50px;
+      font-size: 14px; font-weight: 400;
+      text-decoration: none; transition: all 0.2s;
+      white-space: nowrap; border: 1px solid rgba(255,255,255,0.15);
+    }
+    .nav-login:hover { color: white; border-color: rgba(255,255,255,0.35); }
 
     /* ── HERO ── */
     .hero {
@@ -484,7 +492,10 @@
 <!-- NAV -->
 <nav>
   <div class="nav-logo">JurisQuiz</div>
-  <a href="https://pay.hotmart.com/X105045009B" class="nav-cta">Começar agora</a>
+  <div style="display:flex;align-items:center;gap:10px">
+    <a href="https://josuecsantos.github.io/jurisquiz/" class="nav-login">Já tenho acesso</a>
+    <a href="https://pay.hotmart.com/X105045009B" class="nav-cta">Começar agora</a>
+  </div>
 </nav>
 
 <!-- HERO -->
@@ -495,9 +506,10 @@
   <h1>A jurisprudência que a FGV <em>cobra nas provas</em>, do jeito que sua mente <em>retém</em></h1>
   <p class="hero-sub">Questões do STJ e STF no estilo da banca, com gabarito comentado em 5 minutos e método comprovado por aprovados nos maiores concursos do país.</p>
   <div class="hero-actions">
-    <a href="#precos" class="btn-hero-primary">Quero meu acesso →</a>
-    <a href="#como-funciona" class="btn-hero-secondary">Ver como funciona</a>
+    <a href="https://pay.hotmart.com/X105045009B" class="btn-hero-primary">Quero meu acesso →</a>
+    <a href="https://josuecsantos.github.io/jurisquiz/" class="btn-hero-secondary">Já tenho acesso</a>
   </div>
+  <a href="#como-funciona" style="margin-top:16px;font-size:13px;color:rgba(255,255,255,0.3);text-decoration:none;animation:fadeUp 0.8s 0.35s ease both;display:block">Ver como funciona ↓</a>
   <div class="hero-stats">
     <div class="hero-stat">
       <div class="hero-stat-num">STJ</div>

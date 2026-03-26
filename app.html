@@ -398,6 +398,22 @@
       transition: border-color 0.2s;
     }
     .modal-textarea:focus { outline: none; border-color: var(--gold); }
+
+    /* RICH EDITOR */
+    .rich-editor-wrap { border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; background: white; transition: border-color 0.2s; }
+    .rich-editor-wrap:focus-within { border-color: var(--gold); }
+    .rich-toolbar { display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: var(--cream); flex-wrap: wrap; }
+    .rich-btn { width: 30px; height: 28px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--ink); font-family: 'DM Sans', sans-serif; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .rich-btn:hover { background: var(--cream2); }
+    .rich-btn.active { background: var(--ink); color: var(--gold); }
+    .rich-btn-sep { width: 1px; background: var(--border); margin: 4px 4px; }
+    .rich-content { min-height: 80px; padding: 10px 14px; outline: none; font-size: 14px; color: var(--ink); font-family: 'DM Sans', sans-serif; line-height: 1.6; }
+    .rich-content.tall { min-height: 120px; }
+    .rich-content ul { padding-left: 20px; }
+    .rich-content b, .rich-content strong { font-weight: 700; }
+    .rich-content i, .rich-content em { font-style: italic; }
+    .rich-content u { text-decoration: underline; }
+    .rich-content:empty:before { content: attr(placeholder); color: var(--muted); pointer-events: none; }
     .modal-select {
       width: 100%; padding: 10px 14px; border-radius: var(--radius);
       border: 1.5px solid var(--border); background: white;
@@ -894,28 +910,74 @@
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Enunciado</label>
-      <textarea class="modal-textarea" id="mq-enunciado" placeholder="Texto da questão..." style="min-height:120px"></textarea>
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+          <button class="rich-btn" title="Parágrafo" onclick="formatDoc('insertParagraph')">¶</button>
+        </div>
+        <div class="rich-content tall" id="mq-enunciado" contenteditable="true" placeholder="Texto da questão..."></div>
+      </div>
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Alternativa A</label>
-      <textarea class="modal-textarea" id="mq-alt-a" placeholder="Texto da alternativa A..."></textarea>
-    </div>
-    <div class="modal-form-group">
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+        </div>
+        <div class="rich-content" id="mq-alt-a" contenteditable="true" placeholder="Texto da alternativa A..."></div>
+      </div>
       <label class="modal-label">Alternativa B</label>
-      <textarea class="modal-textarea" id="mq-alt-b" placeholder="Texto da alternativa B..."></textarea>
-    </div>
-    <div class="modal-form-group">
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+        </div>
+        <div class="rich-content" id="mq-alt-b" contenteditable="true" placeholder="Texto da alternativa B..."></div>
+      </div>
       <label class="modal-label">Alternativa C</label>
-      <textarea class="modal-textarea" id="mq-alt-c" placeholder="Texto da alternativa C..."></textarea>
-    </div>
-    <div class="modal-form-group">
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+        </div>
+        <div class="rich-content" id="mq-alt-c" contenteditable="true" placeholder="Texto da alternativa C..."></div>
+      </div>
       <label class="modal-label">Alternativa D</label>
-      <textarea class="modal-textarea" id="mq-alt-d" placeholder="Texto da alternativa D..."></textarea>
-    </div>
-    <div class="modal-form-group">
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+        </div>
+        <div class="rich-content" id="mq-alt-d" contenteditable="true" placeholder="Texto da alternativa D..."></div>
+      </div>
       <label class="modal-label">Alternativa E</label>
-      <textarea class="modal-textarea" id="mq-alt-e" placeholder="Texto da alternativa E..."></textarea>
-    </div>
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+        </div>
+        <div class="rich-content" id="mq-alt-e" contenteditable="true" placeholder="Texto da alternativa E..."></div>
+      </div>
     <div class="modal-grid2">
       <div class="modal-form-group">
         <label class="modal-label">Gabarito</label>
@@ -931,7 +993,17 @@
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Explicação do gabarito</label>
-      <textarea class="modal-textarea" id="mq-explicacao" placeholder="Fundamento legal, súmula, decisão..." style="min-height:100px"></textarea>
+      <div class="rich-editor-wrap">
+        <div class="rich-toolbar" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+          <button class="rich-btn" title="Parágrafo" onclick="formatDoc('insertParagraph')">¶</button>
+        </div>
+        <div class="rich-content tall" id="mq-explicacao" contenteditable="true" placeholder="Fundamento legal, súmula, decisão..."></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="fecharModalQuestao()">Cancelar</button>
@@ -1447,7 +1519,7 @@ async function mostrarQuizQuestao(q) {
   document.getElementById('quiz-tribunal').textContent = q.tribunal || '—';
   document.getElementById('quiz-tema').textContent = q.tema || '';
   document.getElementById('quiz-dif').textContent = q.dificuldade || 'médio';
-  document.getElementById('quiz-enunciado').textContent = q.enunciado;
+  document.getElementById('quiz-enunciado').innerHTML = q.enunciado;
 
   const alts = [
     { letra: 'A', texto: q.alternativa_a },
@@ -1768,17 +1840,18 @@ function abrirModalQuestao(id) {
     document.getElementById('mq-tribunal').value = q.tribunal || '';
     document.getElementById('mq-dificuldade').value = q.dificuldade || 'médio';
     document.getElementById('mq-tema').value = q.tema || '';
-    document.getElementById('mq-enunciado').value = q.enunciado || '';
-    document.getElementById('mq-alt-a').value = q.alternativa_a || '';
-    document.getElementById('mq-alt-b').value = q.alternativa_b || '';
-    document.getElementById('mq-alt-c').value = q.alternativa_c || '';
-    document.getElementById('mq-alt-d').value = q.alternativa_d || '';
-    document.getElementById('mq-alt-e').value = q.alternativa_e || '';
+    document.getElementById('mq-enunciado').innerHTML = q.enunciado || '';
+    document.getElementById('mq-alt-a').innerHTML = q.alternativa_a || '';
+    document.getElementById('mq-alt-b').innerHTML = q.alternativa_b || '';
+    document.getElementById('mq-alt-c').innerHTML = q.alternativa_c || '';
+    document.getElementById('mq-alt-d').innerHTML = q.alternativa_d || '';
+    document.getElementById('mq-alt-e').innerHTML = q.alternativa_e || '';
     document.getElementById('mq-gabarito').value = (q.gabarito || 'A').toUpperCase();
-    document.getElementById('mq-explicacao').value = q.explicacao || '';
+    document.getElementById('mq-explicacao').innerHTML = q.explicacao || '';
   } else {
     document.getElementById('modal-questao-title').textContent = 'Nova questão';
-    ['mq-tribunal','mq-tema','mq-enunciado','mq-alt-a','mq-alt-b','mq-alt-c','mq-alt-d','mq-alt-e','mq-explicacao'].forEach(id => document.getElementById(id).value = '');
+    ['mq-tribunal','mq-tema'].forEach(id => document.getElementById(id).value = '');
+    ['mq-enunciado','mq-alt-a','mq-alt-b','mq-alt-c','mq-alt-d','mq-alt-e','mq-explicacao'].forEach(id => document.getElementById(id).innerHTML = '');
     document.getElementById('mq-dificuldade').value = 'médio';
     document.getElementById('mq-gabarito').value = 'A';
   }
@@ -1790,10 +1863,15 @@ function fecharModalQuestao() {
   editingQuestaoId = null;
 }
 
+// Função de formatação do editor rico
+function formatDoc(cmd) {
+  document.execCommand(cmd, false, null);
+}
+
 async function salvarQuestaoAdmin() {
   const btn = document.getElementById('btn-modal-save');
-  const enunciado = document.getElementById('mq-enunciado').value.trim();
-  if (!enunciado) { alert('O enunciado é obrigatório.'); return; }
+  const enunciado = document.getElementById('mq-enunciado').innerHTML.trim();
+  if (!enunciado || enunciado === '<br>') { alert('O enunciado é obrigatório.'); return; }
   btn.disabled = true; btn.textContent = 'Salvando...';
 
   const payload = {
@@ -1801,13 +1879,13 @@ async function salvarQuestaoAdmin() {
     dificuldade: document.getElementById('mq-dificuldade').value,
     tema: document.getElementById('mq-tema').value.trim(),
     enunciado,
-    alternativa_a: document.getElementById('mq-alt-a').value.trim(),
-    alternativa_b: document.getElementById('mq-alt-b').value.trim(),
-    alternativa_c: document.getElementById('mq-alt-c').value.trim(),
-    alternativa_d: document.getElementById('mq-alt-d').value.trim(),
-    alternativa_e: document.getElementById('mq-alt-e').value.trim(),
+    alternativa_a: document.getElementById('mq-alt-a').innerHTML.trim(),
+    alternativa_b: document.getElementById('mq-alt-b').innerHTML.trim(),
+    alternativa_c: document.getElementById('mq-alt-c').innerHTML.trim(),
+    alternativa_d: document.getElementById('mq-alt-d').innerHTML.trim(),
+    alternativa_e: document.getElementById('mq-alt-e').innerHTML.trim(),
     gabarito: document.getElementById('mq-gabarito').value.toUpperCase(),
-    explicacao: document.getElementById('mq-explicacao').value.trim()
+    explicacao: document.getElementById('mq-explicacao').innerHTML.trim()
   };
 
   let error;

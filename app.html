@@ -805,7 +805,14 @@
           <span id="reply-to-name">Respondendo a...</span>
           <button class="reply-cancel" onclick="cancelarResposta()">×</button>
         </div>
-        <textarea class="new-comment-input" id="new-comment-text" placeholder="Escreva um comentário..."></textarea>
+        <div class="rich-toolbar" style="border-bottom:1px solid var(--border);background:var(--cream)" onmousedown="event.preventDefault()">
+          <button class="rich-btn" title="Negrito" onclick="formatDoc('bold')"><b>N</b></button>
+          <button class="rich-btn" title="Itálico" onclick="formatDoc('italic')"><i>I</i></button>
+          <button class="rich-btn" title="Sublinhado" onclick="formatDoc('underline')"><u>S</u></button>
+          <div class="rich-btn-sep"></div>
+          <button class="rich-btn" title="Lista" onclick="formatDoc('insertUnorderedList')">☰</button>
+        </div>
+        <div class="new-comment-input rich-content" id="new-comment-text" contenteditable="true" placeholder="Escreva um comentário..."></div>
         <div class="new-comment-footer">
           <button class="btn-comment" onclick="enviarComentario()">Comentar</button>
         </div>
@@ -1663,7 +1670,7 @@ function renderComentario(c) {
         '<span class="comment-author">' + getNome(c) + '</span>' +
         '<span class="comment-date">' + data + '</span>' +
       '</div>' +
-      '<div class="comment-text">' + escapeHtml(c.texto) + '</div>' +
+      '<div class="comment-text">' + c.texto + '</div>' +
       '<div class="comment-actions">' +
         '<button class="comment-action-btn" onclick="iniciarResposta(\'' + c.id + '\', \'' + escapeAttr(getNome(c)) + '\')">↩ Responder</button>' +
       '</div>' +
@@ -1680,7 +1687,7 @@ function renderRespostaComentario(c) {
       '<span class="comment-author">' + getNome(c) + '</span>' +
       '<span class="comment-date">' + data + '</span>' +
     '</div>' +
-    '<div class="comment-text">' + escapeHtml(c.texto) + '</div>' +
+    '<div class="comment-text">' + c.texto + '</div>' +
   '</div>';
 }
 
@@ -1707,8 +1714,8 @@ function cancelarResposta() {
 }
 
 async function enviarComentario() {
-  const texto = document.getElementById('new-comment-text').value.trim();
-  if (!texto) return;
+  const texto = document.getElementById('new-comment-text').innerHTML.trim();
+  if (!texto || texto === '<br>') return;
   const userId = await getUserId();
   const btn = document.querySelector('.btn-comment');
   btn.disabled = true; btn.textContent = 'Enviando...';
@@ -1717,7 +1724,7 @@ async function enviarComentario() {
   const { error } = await sb.from('comentarios').insert(body);
   btn.disabled = false; btn.textContent = 'Comentar';
   if (error) { alert('Erro ao enviar: ' + error.message); return; }
-  document.getElementById('new-comment-text').value = '';
+  document.getElementById('new-comment-text').innerHTML = '';
   cancelarResposta();
   await carregarComentarios(currentQuestaoId);
 }

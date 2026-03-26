@@ -611,16 +611,9 @@
       <!-- Step 2: Matéria -->
       <div id="step-materia" style="display:none">
         <div class="step-label">Passo 2 — Escolha a matéria</div>
-        <div class="materia-grid">
+        <div class="materia-grid" id="materia-grid">
           <button class="materia-btn materia-btn-all" onclick="selecionarMateria('tudo')">Todas as matérias</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Constitucional')">Direito Constitucional</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Penal')">Direito Penal</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Civil')">Direito Civil</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Administrativo')">Direito Administrativo</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Processual Civil')">Direito Processual Civil</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Processual Penal')">Direito Processual Penal</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Tributário')">Direito Tributário</button>
-          <button class="materia-btn" onclick="selecionarMateria('Direito Trabalhista')">Direito Trabalhista</button>
+          <div class="loading" style="grid-column:1/-1;padding:1rem"><div class="spinner"></div></div>
         </div>
         <div class="step-nav">
           <button class="btn-step" onclick="voltarStep()">← Voltar</button>
@@ -698,6 +691,7 @@
       <div class="admin-tabs">
         <button class="admin-tab active" onclick="switchAdminTab('usuarios')">Usuários</button>
         <button class="admin-tab" onclick="switchAdminTab('questoes')">Questões</button>
+        <button class="admin-tab" onclick="switchAdminTab('materias')">Matérias</button>
       </div>
 
       <!-- Painel Usuários -->
@@ -724,6 +718,15 @@
           <button class="btn-add-questao" onclick="abrirModalQuestao(null)">+ Nova questão</button>
         </div>
         <div id="admin-questoes-list"></div>
+      </div>
+
+      <!-- Painel Matérias -->
+      <div id="admin-panel-materias" class="admin-panel">
+        <div class="admin-section-header">
+          <div class="section-title" style="margin:0">Gerenciar matérias</div>
+          <button class="btn-add-questao" onclick="abrirModalMateria(null)">+ Nova matéria</button>
+        </div>
+        <div id="admin-materias-list"></div>
       </div>
     </div>
 
@@ -837,6 +840,32 @@
           Enviar
         </span>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MATÉRIA (Admin) -->
+<div class="modal-overlay hidden" id="modal-materia">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title" id="modal-materia-title">Nova matéria</div>
+    <div class="modal-form-group">
+      <label class="modal-label">Nome da matéria</label>
+      <input class="modal-input" type="text" id="mm-nome" placeholder="Ex: Direito Empresarial">
+    </div>
+    <div class="modal-form-group">
+      <label class="modal-label">Ordem de exibição</label>
+      <input class="modal-input" type="number" id="mm-ordem" placeholder="Ex: 9" min="0">
+    </div>
+    <div class="modal-form-group">
+      <label class="modal-label">Status</label>
+      <select class="modal-select" id="mm-ativo">
+        <option value="true">Ativa</option>
+        <option value="false">Inativa</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="fecharModalMateria()">Cancelar</button>
+      <button class="btn-modal-save" id="btn-modal-materia-save" onclick="salvarMateria()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1089,7 +1118,16 @@ async function iniciarApp() {
   document.getElementById('top-sub').textContent = 'Olá, ' + nomeExibir;
   setupAdminNav();
   await carregarDados();
+  await renderMateriaGrid();
   renderHome();
+}
+
+async function renderMateriaGrid() {
+  await carregarMaterias();
+  const grid = document.getElementById('materia-grid');
+  const ativas = materias.filter(m => m.ativo);
+  grid.innerHTML = `<button class="materia-btn materia-btn-all" onclick="selecionarMateria('tudo')">Todas as matérias</button>` +
+    ativas.map(m => `<button class="materia-btn" onclick="selecionarMateria('${escapeAttr(m.nome)}')">${escapeHtml(m.nome)}</button>`).join('');
 }
 
 async function carregarDados() {
@@ -1624,10 +1662,14 @@ function setupAdminNav() {
 }
 
 function switchAdminTab(tab) {
-  document.querySelectorAll('.admin-tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && tab === 'usuarios') || (i === 1 && tab === 'questoes')));
+  document.querySelectorAll('.admin-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'usuarios') || (i === 1 && tab === 'questoes') || (i === 2 && tab === 'materias'));
+  });
   document.getElementById('admin-panel-usuarios').classList.toggle('active', tab === 'usuarios');
   document.getElementById('admin-panel-questoes').classList.toggle('active', tab === 'questoes');
+  document.getElementById('admin-panel-materias').classList.toggle('active', tab === 'materias');
   if (tab === 'questoes') renderAdminQuestoes();
+  if (tab === 'materias') renderAdminMaterias();
 }
 
 async function carregarAdminUsers() {
@@ -1877,6 +1919,89 @@ ${texto}
   btn.innerHTML = '<span style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Enviar</span>';
 }
 
+// ─── ADMIN — MATÉRIAS ──────────────────────────────────────────────────────
+let materias = [];
+let editingMateriaId = null;
+
+async function carregarMaterias() {
+  const res = await api('materias?select=*&order=ordem.asc,nome.asc');
+  materias = await res.json();
+  return materias;
+}
+
+async function renderAdminMaterias() {
+  await carregarMaterias();
+  const el = document.getElementById('admin-materias-list');
+  if (!materias.length) {
+    el.innerHTML = '<div class="empty">Nenhuma matéria cadastrada.</div>';
+    return;
+  }
+  el.innerHTML = materias.map(m => `
+    <div class="questao-admin-card" style="display:flex;align-items:center;gap:12px">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500;color:var(--ink)">${escapeHtml(m.nome)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Ordem: ${m.ordem || 0} · ${m.ativo ? '<span style="color:var(--green)">Ativa</span>' : '<span style="color:var(--red)">Inativa</span>'}</div>
+      </div>
+      <div class="questao-admin-actions">
+        <button class="user-action-btn btn-editar" onclick="abrirModalMateria('${m.id}')">✎ Editar</button>
+        <button class="user-action-btn btn-excluir" onclick="excluirMateria('${m.id}')">✕ Excluir</button>
+      </div>
+    </div>`).join('');
+}
+
+function abrirModalMateria(id) {
+  editingMateriaId = id;
+  if (id) {
+    const m = materias.find(x => x.id === id);
+    if (!m) return;
+    document.getElementById('modal-materia-title').textContent = 'Editar matéria';
+    document.getElementById('mm-nome').value = m.nome || '';
+    document.getElementById('mm-ordem').value = m.ordem || 0;
+    document.getElementById('mm-ativo').value = m.ativo ? 'true' : 'false';
+  } else {
+    document.getElementById('modal-materia-title').textContent = 'Nova matéria';
+    document.getElementById('mm-nome').value = '';
+    document.getElementById('mm-ordem').value = materias.length + 1;
+    document.getElementById('mm-ativo').value = 'true';
+  }
+  document.getElementById('modal-materia').classList.remove('hidden');
+  setTimeout(() => document.getElementById('mm-nome').focus(), 100);
+}
+
+function fecharModalMateria() {
+  document.getElementById('modal-materia').classList.add('hidden');
+  editingMateriaId = null;
+}
+
+async function salvarMateria() {
+  const nome = document.getElementById('mm-nome').value.trim();
+  if (!nome) { alert('O nome da matéria é obrigatório.'); return; }
+  const btn = document.getElementById('btn-modal-materia-save');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const payload = {
+    nome,
+    ordem: parseInt(document.getElementById('mm-ordem').value) || 0,
+    ativo: document.getElementById('mm-ativo').value === 'true'
+  };
+  let error;
+  if (editingMateriaId) {
+    ({ error } = await sb.from('materias').update(payload).eq('id', editingMateriaId));
+  } else {
+    ({ error } = await sb.from('materias').insert(payload));
+  }
+  btn.disabled = false; btn.textContent = 'Salvar';
+  if (error) { alert('Erro ao salvar: ' + error.message); return; }
+  fecharModalMateria();
+  await renderAdminMaterias();
+}
+
+async function excluirMateria(id) {
+  if (!confirm('Excluir esta matéria? Ela deixará de aparecer nos filtros.')) return;
+  const { error } = await sb.from('materias').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  await renderAdminMaterias();
+}
+
 // ─── SERVICE WORKER & KEYBOARD ─────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -1892,6 +2017,9 @@ document.getElementById('modal-questao').addEventListener('click', function(e) {
 });
 document.getElementById('modal-report').addEventListener('click', function(e) {
   if (e.target === this) fecharReport();
+});
+document.getElementById('modal-materia').addEventListener('click', function(e) {
+  if (e.target === this) fecharModalMateria();
 });
 
 // ─── INICIALIZAÇÃO ─────────────────────────────────────────────────────────

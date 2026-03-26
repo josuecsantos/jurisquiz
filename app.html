@@ -603,6 +603,7 @@
         <div class="step-dot active" id="dot-0"></div>
         <div class="step-dot" id="dot-1"></div>
         <div class="step-dot" id="dot-2"></div>
+        <div class="step-dot" id="dot-3"></div>
       </div>
 
       <!-- Step 1: Tribunal -->
@@ -624,9 +625,27 @@
         </div>
       </div>
 
-      <!-- Step 2: Matéria -->
+      <!-- Step 2: Tipo de tese (STJ/STF apenas) -->
+      <div id="step-tese" style="display:none">
+        <div class="step-label" id="step-tese-label">Passo 2 — Tipo de tese</div>
+        <div class="tribunal-btns">
+          <button class="tribunal-btn" id="btn-tese-todas" onclick="selecionarTese('todas')">
+            <div class="tribunal-btn-title">Todas as teses</div>
+            <div class="tribunal-btn-sub">Jurisprudência geral do tribunal</div>
+          </button>
+          <button class="tribunal-btn" id="btn-tese-especial" onclick="selecionarTese('especial')">
+            <div class="tribunal-btn-title" id="btn-tese-especial-titulo">Recursos Repetitivos</div>
+            <div class="tribunal-btn-sub" id="btn-tese-especial-sub">Teses vinculantes do STJ</div>
+          </button>
+        </div>
+        <div class="step-nav">
+          <button class="btn-step" onclick="voltarParaTribunal()">← Voltar</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Matéria -->
       <div id="step-materia" style="display:none">
-        <div class="step-label">Passo 2 — Escolha a matéria</div>
+        <div class="step-label" id="step-materia-label">Passo 3 — Escolha a matéria</div>
         <div class="materia-grid" id="materia-grid">
           <button class="materia-btn materia-btn-all" onclick="selecionarMateria('tudo')">Todas as matérias</button>
           <div class="loading" style="grid-column:1/-1;padding:1rem"><div class="spinner"></div></div>
@@ -636,7 +655,7 @@
         </div>
       </div>
 
-      <!-- Step 3: Stats + lista -->
+      <!-- Step 4: Stats + lista -->
       <div id="step-stats" style="display:none">
         <div class="voltar-filtro" onclick="renderHome()">← Mudar filtros</div>
         <div class="stats-grid">
@@ -661,6 +680,14 @@
           </div>
         </div>
         <div class="progress-wrap"><div class="progress-fill" id="home-progress" style="width:0%"></div></div>
+        <!-- Filtro de tese dentro da matéria (aparece só para STJ/STF) -->
+        <div id="filtro-tese-interna" style="display:none; margin-bottom:12px;">
+          <div class="step-label" style="margin-bottom:8px" id="filtro-tese-interna-label">Filtrar por tipo de tese</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="filtro-btn" id="ftbtn-todas" onclick="filtrarTese('todas')" style="flex:1">Todas as teses</button>
+            <button class="filtro-btn" id="ftbtn-especial" onclick="filtrarTese('especial')" style="flex:1; white-space:nowrap"></button>
+          </div>
+        </div>
         <div class="filtro-status">
           <button class="filtro-btn" id="fbtn-nao" onclick="filtrarStatus('nao')">Não resolvidas</button>
           <button class="filtro-btn" id="fbtn-acerto" onclick="filtrarStatus('acerto')">Acertei</button>
@@ -997,6 +1024,15 @@
         </select>
         <div class="gabarito-hint">Somente a letra (A, B, C, D ou E)</div>
       </div>
+      <div class="modal-form-group">
+        <label class="modal-label">Tipo de tese</label>
+        <select class="modal-select" id="mq-tipo-tese">
+          <option value="">Jurisprudência geral</option>
+          <option value="Repercussão Geral">Repercussão Geral (STF)</option>
+          <option value="Recursos Repetitivos">Recursos Repetitivos (STJ)</option>
+        </select>
+        <div class="gabarito-hint">Opcional — classifica a tese</div>
+      </div>
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Explicação do gabarito</label>
@@ -1255,42 +1291,87 @@ function goTo(screen) {
 let filtroTribunal = null;
 let filtroMateria = null;
 let filtroMateriaLabel = '';
+let filtroTese = 'todas'; // 'todas' | 'especial'
 
 function renderHome() {
   const primeiroNome = (currentUser.nome || currentUser.email.split('@')[0]).split(' ')[0];
   document.getElementById('welcome-nome').textContent = primeiroNome;
   document.getElementById('step-tribunal').style.display = 'block';
+  document.getElementById('step-tese').style.display = 'none';
   document.getElementById('step-materia').style.display = 'none';
   document.getElementById('step-stats').style.display = 'none';
-  filtroTribunal = null; filtroMateria = null; filtroMateriaLabel = '';
+  filtroTribunal = null; filtroMateria = null; filtroMateriaLabel = ''; filtroTese = 'todas';
   atualizarDots(0);
   document.querySelectorAll('.tribunal-btn').forEach(b => b.classList.remove('selected'));
 }
 
 function atualizarDots(step) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     document.getElementById('dot-' + i).classList.toggle('active', i === step);
   }
 }
 
 function selecionarTribunal(t) {
   filtroTribunal = t;
+  filtroTese = 'todas';
   document.querySelectorAll('.tribunal-btn').forEach(b => b.classList.remove('selected'));
   const map = { STJ: 'btn-stj', STF: 'btn-stf', tudo: 'btn-tudo' };
   document.getElementById(map[t]).classList.add('selected');
   setTimeout(() => {
     document.getElementById('step-tribunal').style.display = 'none';
-    document.getElementById('step-materia').style.display = 'block';
-    atualizarDots(1);
+    if (t === 'tudo') {
+      // Pula o filtro de tese — vai direto para matéria
+      document.getElementById('step-materia-label').textContent = 'Passo 2 — Escolha a matéria';
+      document.getElementById('step-materia').style.display = 'block';
+      atualizarDots(2);
+    } else {
+      // STJ ou STF — mostra filtro de tese
+      const isSTF = t === 'STF';
+      document.getElementById('step-tese-label').textContent = `Passo 2 — Tipo de tese (${t})`;
+      document.getElementById('btn-tese-especial-titulo').textContent = isSTF ? 'Repercussão Geral' : 'Recursos Repetitivos';
+      document.getElementById('btn-tese-especial-sub').textContent = isSTF ? 'Teses vinculantes do STF' : 'Teses vinculantes do STJ';
+      document.getElementById('step-tese').style.display = 'block';
+      document.querySelectorAll('#step-tese .tribunal-btn').forEach(b => b.classList.remove('selected'));
+      atualizarDots(1);
+    }
   }, 200);
+}
+
+function selecionarTese(t) {
+  filtroTese = t;
+  document.querySelectorAll('#step-tese .tribunal-btn').forEach(b => b.classList.remove('selected'));
+  const map = { todas: 'btn-tese-todas', especial: 'btn-tese-especial' };
+  document.getElementById(map[t]).classList.add('selected');
+  setTimeout(() => {
+    document.getElementById('step-tese').style.display = 'none';
+    const teseLabel = filtroTese === 'especial'
+      ? (filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos')
+      : 'Todas as teses';
+    document.getElementById('step-materia-label').textContent = `Passo 3 — Matéria (${filtroTribunal} · ${teseLabel})`;
+    document.getElementById('step-materia').style.display = 'block';
+    atualizarDots(2);
+  }, 200);
+}
+
+function voltarParaTribunal() {
+  document.getElementById('step-tese').style.display = 'none';
+  document.getElementById('step-tribunal').style.display = 'block';
+  atualizarDots(0);
+  filtroTribunal = null; filtroTese = 'todas';
 }
 
 function voltarStep() {
   document.getElementById('step-materia').style.display = 'none';
   document.getElementById('step-stats').style.display = 'none';
-  document.getElementById('step-tribunal').style.display = 'block';
-  atualizarDots(0);
-  filtroTribunal = null; filtroMateria = null;
+  if (filtroTribunal && filtroTribunal !== 'tudo') {
+    document.getElementById('step-tese').style.display = 'block';
+    atualizarDots(1);
+  } else {
+    document.getElementById('step-tribunal').style.display = 'block';
+    atualizarDots(0);
+    filtroTribunal = null;
+  }
+  filtroMateria = null; filtroTese = filtroTribunal ? filtroTese : 'todas';
 }
 
 function selecionarMateria(m) {
@@ -1301,13 +1382,35 @@ function selecionarMateria(m) {
   if (btn) btn.classList.add('selected');
   setTimeout(() => {
     document.getElementById('step-materia').style.display = 'none';
-    atualizarDots(2);
+    atualizarDots(3);
     mostrarQuestaoFiltrada();
   }, 200);
 }
 
 let questoesFiltradas = [];
 let filtroStatus = 'nao';
+
+function getNomeTese() {
+  if (!filtroTribunal || filtroTribunal === 'tudo') return null;
+  return filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos';
+}
+
+function aplicarFiltroTese(lista, tese) {
+  if (tese !== 'especial') return lista;
+  const nomeTese = getNomeTese();
+  if (!nomeTese) return lista;
+  return lista.filter(q => q.tipo_tese && q.tipo_tese.toLowerCase().includes(nomeTese.toLowerCase().split(' ')[0].toLowerCase()));
+}
+
+function filtrarTese(t) {
+  filtroTese = t;
+  document.querySelectorAll('#filtro-tese-interna button.filtro-btn').forEach(b => {
+    b.classList.remove('active-nao', 'active-acerto', 'active-erro');
+  });
+  document.getElementById('ftbtn-todas').classList.toggle('active-nao', t === 'todas');
+  document.getElementById('ftbtn-especial').classList.toggle('active-nao', t === 'especial');
+  mostrarQuestaoFiltrada();
+}
 
 function mostrarQuestaoFiltrada() {
   let filtradas = [...questoes];
@@ -1317,7 +1420,22 @@ function mostrarQuestaoFiltrada() {
   if (filtroMateria && filtroMateria !== 'tudo') {
     filtradas = filtradas.filter(q => q.tema && q.tema.toUpperCase().includes(filtroMateria.toUpperCase()));
   }
+  // Aplica filtro de tese
+  filtradas = aplicarFiltroTese(filtradas, filtroTese);
   questoesFiltradas = filtradas;
+
+  // Mostra/oculta filtro interno de tese
+  const filtroInternoEl = document.getElementById('filtro-tese-interna');
+  if (filtroTribunal && filtroTribunal !== 'tudo') {
+    const nomeTese = getNomeTese();
+    filtroInternoEl.style.display = 'block';
+    document.getElementById('filtro-tese-interna-label').textContent = `Filtrar por tipo de tese (${filtroTribunal})`;
+    document.getElementById('ftbtn-especial').textContent = nomeTese;
+    document.getElementById('ftbtn-todas').classList.toggle('active-nao', filtroTese === 'todas');
+    document.getElementById('ftbtn-especial').classList.toggle('active-nao', filtroTese === 'especial');
+  } else {
+    filtroInternoEl.style.display = 'none';
+  }
 
   const respondidas = new Set(historico.map(h => h.questao_id));
   const acertadas = new Set(historico.filter(h => h.acertou).map(h => h.questao_id));
@@ -1332,7 +1450,6 @@ function mostrarQuestaoFiltrada() {
   const pct = answered ? Math.round(correct / answered * 100) : 0;
   document.getElementById('home-progress').style.width = pct + '%';
 
-  // Habilita/desabilita blocos clicáveis conforme disponibilidade
   const totalBox = document.getElementById('stat-total-box');
   const acertosBox = document.getElementById('stat-acertos-box');
   const errosBox = document.getElementById('stat-erros-box');
@@ -1854,6 +1971,7 @@ function abrirModalQuestao(id) {
     document.getElementById('mq-alt-d').innerHTML = q.alternativa_d || '';
     document.getElementById('mq-alt-e').innerHTML = q.alternativa_e || '';
     document.getElementById('mq-gabarito').value = (q.gabarito || 'A').toUpperCase();
+    document.getElementById('mq-tipo-tese').value = q.tipo_tese || '';
     document.getElementById('mq-explicacao').innerHTML = q.explicacao || '';
   } else {
     document.getElementById('modal-questao-title').textContent = 'Nova questão';
@@ -1861,6 +1979,7 @@ function abrirModalQuestao(id) {
     ['mq-enunciado','mq-alt-a','mq-alt-b','mq-alt-c','mq-alt-d','mq-alt-e','mq-explicacao'].forEach(id => document.getElementById(id).innerHTML = '');
     document.getElementById('mq-dificuldade').value = 'médio';
     document.getElementById('mq-gabarito').value = 'A';
+    document.getElementById('mq-tipo-tese').value = '';
   }
   modal.classList.remove('hidden');
 }
@@ -1892,6 +2011,7 @@ async function salvarQuestaoAdmin() {
     alternativa_d: document.getElementById('mq-alt-d').innerHTML.trim(),
     alternativa_e: document.getElementById('mq-alt-e').innerHTML.trim(),
     gabarito: document.getElementById('mq-gabarito').value.toUpperCase(),
+    tipo_tese: document.getElementById('mq-tipo-tese').value || null,
     explicacao: document.getElementById('mq-explicacao').innerHTML.trim()
   };
 

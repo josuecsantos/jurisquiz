@@ -2088,10 +2088,12 @@ async function salvarQuestaoAdmin() {
 
   btn.disabled = true; btn.textContent = 'Salvando...';
 
-  // Gera código automático apenas para questões novas
-  let codigo = editingQuestaoId
-    ? (questoes.find(q => q.id === editingQuestaoId)?.codigo || null)
-    : (tribunal && informativo && codigoMateria ? await gerarCodigo(tribunal, informativo, codigoMateria) : null);
+  // Gera código: mantém o existente, ou gera novo se não tiver
+  const questaoExistente = editingQuestaoId ? questoes.find(q => q.id === editingQuestaoId) : null;
+  let codigo = questaoExistente?.codigo || null;
+  if (!codigo && tribunal && informativo && codigoMateria) {
+    codigo = await gerarCodigo(tribunal, informativo, codigoMateria);
+  }
 
   const payload = {
     tribunal,

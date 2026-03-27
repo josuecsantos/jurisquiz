@@ -2127,7 +2127,14 @@ async function salvarQuestaoAdmin() {
 }
 
 async function excluirQuestao(id) {
-  if (!confirm('Tem certeza que deseja excluir esta questão? Todos os registros de resposta relacionados serão perdidos.')) return;
+  if (!confirm('Tem certeza que deseja excluir esta questão? Todos os registros de resposta e comentários relacionados serão perdidos.')) return;
+  // Exclui respostas vinculadas
+  const { error: errResp } = await sb.from('respostas').delete().eq('questao_id', id);
+  if (errResp) { alert('Erro ao excluir respostas: ' + errResp.message); return; }
+  // Exclui comentários vinculados
+  const { error: errComent } = await sb.from('comentarios').delete().eq('questao_id', id);
+  if (errComent) { alert('Erro ao excluir comentários: ' + errComent.message); return; }
+  // Exclui a questão
   const { error } = await sb.from('questoes').delete().eq('id', id);
   if (error) { alert('Erro ao excluir: ' + error.message); return; }
   await carregarDados();

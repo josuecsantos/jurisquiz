@@ -760,6 +760,9 @@
           <div class="section-title" style="margin:0">Gerenciar questões</div>
           <button class="btn-add-questao" onclick="abrirModalQuestao(null)">+ Nova questão</button>
         </div>
+        <input class="admin-search" id="admin-questoes-search" type="text"
+          placeholder="🔍 Buscar por código (ex: STJ-882-DC-001) ou palavra-chave..."
+          oninput="renderAdminQuestoes()">
         <div id="admin-questoes-list"></div>
       </div>
 
@@ -902,9 +905,16 @@
       <label class="modal-label">Nome da matéria</label>
       <input class="modal-input" type="text" id="mm-nome" placeholder="Ex: Direito Empresarial">
     </div>
-    <div class="modal-form-group">
-      <label class="modal-label">Ordem de exibição</label>
-      <input class="modal-input" type="number" id="mm-ordem" placeholder="Ex: 9" min="0">
+    <div class="modal-grid2">
+      <div class="modal-form-group">
+        <label class="modal-label">Código (2 letras)</label>
+        <input class="modal-input" type="text" id="mm-codigo" placeholder="Ex: DE" maxlength="3" style="text-transform:uppercase;font-weight:700;letter-spacing:2px">
+        <div class="gabarito-hint">2 letras únicas — usado no ID das questões</div>
+      </div>
+      <div class="modal-form-group">
+        <label class="modal-label">Ordem de exibição</label>
+        <input class="modal-input" type="number" id="mm-ordem" placeholder="Ex: 9" min="0">
+      </div>
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Status</label>
@@ -927,8 +937,18 @@
     <div class="modal-grid2">
       <div class="modal-form-group">
         <label class="modal-label">Tribunal</label>
-        <input class="modal-input" type="text" id="mq-tribunal" placeholder="Ex: STJ">
+        <select class="modal-select" id="mq-tribunal" onchange="atualizarCodigoPreview()">
+          <option value="">Selecione...</option>
+          <option value="STJ">STJ</option>
+          <option value="STF">STF</option>
+        </select>
       </div>
+      <div class="modal-form-group">
+        <label class="modal-label">Nº do Informativo</label>
+        <input class="modal-input" type="number" id="mq-informativo" placeholder="Ex: 882" oninput="atualizarCodigoPreview()">
+      </div>
+    </div>
+    <div class="modal-grid2">
       <div class="modal-form-group">
         <label class="modal-label">Dificuldade</label>
         <select class="modal-select" id="mq-dificuldade">
@@ -937,10 +957,18 @@
           <option value="difícil">Difícil</option>
         </select>
       </div>
+      <div class="modal-form-group">
+        <label class="modal-label">Código gerado automaticamente</label>
+        <div id="mq-codigo-preview" style="padding:10px 14px;background:var(--ink);color:var(--gold);border-radius:var(--radius);font-size:15px;font-weight:700;font-family:monospace;letter-spacing:1px;min-height:42px;display:flex;align-items:center">
+          —
+        </div>
+      </div>
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Tema / Matéria</label>
-      <input class="modal-input" type="text" id="mq-tema" placeholder="Ex: Direito Civil">
+      <select class="modal-select" id="mq-tema" onchange="atualizarCodigoPreview()">
+        <option value="">Selecione a matéria...</option>
+      </select>
     </div>
     <div class="modal-form-group">
       <label class="modal-label">Enunciado</label>
@@ -1935,17 +1963,32 @@ async function alterarStatus(userId, novoStatus) {
 // ─── ADMIN — QUESTÕES ──────────────────────────────────────────────────────
 function renderAdminQuestoes() {
   const el = document.getElementById('admin-questoes-list');
-  if (!questoes.length) { el.innerHTML = '<div class="empty">Nenhuma questão cadastrada.</div>'; return; }
-  el.innerHTML = questoes.map(q => `
+  const busca = (document.getElementById('admin-questoes-search')?.value || '').toLowerCase().trim();
+  let lista = [...questoes];
+  if (busca) {
+    lista = lista.filter(q =>
+      (q.codigo && q.codigo.toLowerCase().includes(busca)) ||
+      (q.enunciado && q.enunciado.toLowerCase().includes(busca)) ||
+      (q.tema && q.tema.toLowerCase().includes(busca)) ||
+      (q.tribunal && q.tribunal.toLowerCase().includes(busca))
+    );
+  }
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty">${busca ? `Nenhuma questão encontrada para "${busca}".` : 'Nenhuma questão cadastrada.'}</div>`;
+    return;
+  }
+  el.innerHTML = lista.map(q => `
     <div class="questao-admin-card">
       <div class="questao-admin-top">
         <div class="questao-admin-text">${escapeHtml(q.enunciado)}</div>
         <span class="badge badge-ink">${q.tribunal || '—'}</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${q.codigo ? `<span class="badge" style="background:var(--ink);color:var(--gold);font-family:monospace;letter-spacing:0.5px">${q.codigo}</span>` : ''}
         ${q.tema ? `<span class="badge badge-gray">${q.tema}</span>` : ''}
         <span class="badge ${q.dificuldade === 'fácil' ? 'badge-green' : q.dificuldade === 'difícil' ? 'badge-red' : 'badge-gold'}">${q.dificuldade || 'médio'}</span>
         <span class="badge badge-ink" style="opacity:0.7">Gab: ${q.gabarito || '?'}</span>
+        ${q.informativo ? `<span class="badge badge-gray">Inf. ${q.informativo}</span>` : ''}
       </div>
       <div class="questao-admin-actions">
         <button class="user-action-btn btn-editar" onclick="abrirModalQuestao('${q.id}')">✎ Editar</button>
@@ -1957,13 +2000,19 @@ function renderAdminQuestoes() {
 function abrirModalQuestao(id) {
   editingQuestaoId = id;
   const modal = document.getElementById('modal-questao');
+  // Popula dropdown de matérias com código
+  const sel = document.getElementById('mq-tema');
+  sel.innerHTML = '<option value="">Selecione a matéria...</option>' +
+    materias.filter(m => m.ativo).map(m => `<option value="${escapeAttr(m.nome)}" data-codigo="${m.codigo || ''}">${m.nome}</option>`).join('');
+
   if (id) {
     const q = questoes.find(x => x.id === id);
     if (!q) return;
     document.getElementById('modal-questao-title').textContent = 'Editar questão';
     document.getElementById('mq-tribunal').value = q.tribunal || '';
+    document.getElementById('mq-informativo').value = q.informativo || '';
     document.getElementById('mq-dificuldade').value = q.dificuldade || 'médio';
-    document.getElementById('mq-tema').value = q.tema || '';
+    sel.value = q.tema || '';
     document.getElementById('mq-enunciado').innerHTML = q.enunciado || '';
     document.getElementById('mq-alt-a').innerHTML = q.alternativa_a || '';
     document.getElementById('mq-alt-b').innerHTML = q.alternativa_b || '';
@@ -1973,13 +2022,17 @@ function abrirModalQuestao(id) {
     document.getElementById('mq-gabarito').value = (q.gabarito || 'A').toUpperCase();
     document.getElementById('mq-tipo-tese').value = q.tipo_tese || '';
     document.getElementById('mq-explicacao').innerHTML = q.explicacao || '';
+    document.getElementById('mq-codigo-preview').textContent = q.codigo || '—';
   } else {
     document.getElementById('modal-questao-title').textContent = 'Nova questão';
-    ['mq-tribunal','mq-tema'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mq-tribunal').value = '';
+    document.getElementById('mq-informativo').value = '';
+    sel.value = '';
     ['mq-enunciado','mq-alt-a','mq-alt-b','mq-alt-c','mq-alt-d','mq-alt-e','mq-explicacao'].forEach(id => document.getElementById(id).innerHTML = '');
     document.getElementById('mq-dificuldade').value = 'médio';
     document.getElementById('mq-gabarito').value = 'A';
     document.getElementById('mq-tipo-tese').value = '';
+    document.getElementById('mq-codigo-preview').textContent = '—';
   }
   modal.classList.remove('hidden');
 }
@@ -1987,6 +2040,33 @@ function abrirModalQuestao(id) {
 function fecharModalQuestao() {
   document.getElementById('modal-questao').classList.add('hidden');
   editingQuestaoId = null;
+}
+
+async function atualizarCodigoPreview() {
+  const tribunal = document.getElementById('mq-tribunal').value;
+  const informativo = document.getElementById('mq-informativo').value;
+  const sel = document.getElementById('mq-tema');
+  const opt = sel.options[sel.selectedIndex];
+  const codigoMateria = opt ? opt.dataset.codigo : '';
+  const preview = document.getElementById('mq-codigo-preview');
+
+  if (!tribunal || !informativo || !codigoMateria) {
+    preview.textContent = '—';
+    return;
+  }
+
+  // Busca próximo número sequencial para este grupo
+  const prefixo = `${tribunal}-${informativo}-${codigoMateria}-`;
+  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo));
+  const proximo = String(existentes.length + 1).padStart(3, '0');
+  preview.textContent = `${prefixo}${proximo}`;
+}
+
+async function gerarCodigo(tribunal, informativo, codigoMateria) {
+  const prefixo = `${tribunal}-${informativo}-${codigoMateria}-`;
+  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo));
+  const proximo = String(existentes.length + 1).padStart(3, '0');
+  return `${prefixo}${proximo}`;
 }
 
 // Função de formatação do editor rico
@@ -1998,12 +2078,26 @@ async function salvarQuestaoAdmin() {
   const btn = document.getElementById('btn-modal-save');
   const enunciado = document.getElementById('mq-enunciado').innerHTML.trim();
   if (!enunciado || enunciado === '<br>') { alert('O enunciado é obrigatório.'); return; }
+
+  const tribunal = document.getElementById('mq-tribunal').value.trim();
+  const informativo = document.getElementById('mq-informativo').value.trim();
+  const sel = document.getElementById('mq-tema');
+  const tema = sel.value.trim();
+  const opt = sel.options[sel.selectedIndex];
+  const codigoMateria = opt ? opt.dataset.codigo : '';
+
   btn.disabled = true; btn.textContent = 'Salvando...';
 
+  // Gera código automático apenas para questões novas
+  let codigo = editingQuestaoId
+    ? (questoes.find(q => q.id === editingQuestaoId)?.codigo || null)
+    : (tribunal && informativo && codigoMateria ? await gerarCodigo(tribunal, informativo, codigoMateria) : null);
+
   const payload = {
-    tribunal: document.getElementById('mq-tribunal').value.trim(),
+    tribunal,
+    informativo: informativo ? parseInt(informativo) : null,
     dificuldade: document.getElementById('mq-dificuldade').value,
-    tema: document.getElementById('mq-tema').value.trim(),
+    tema,
     enunciado,
     alternativa_a: document.getElementById('mq-alt-a').innerHTML.trim(),
     alternativa_b: document.getElementById('mq-alt-b').innerHTML.trim(),
@@ -2012,7 +2106,8 @@ async function salvarQuestaoAdmin() {
     alternativa_e: document.getElementById('mq-alt-e').innerHTML.trim(),
     gabarito: document.getElementById('mq-gabarito').value.toUpperCase(),
     tipo_tese: document.getElementById('mq-tipo-tese').value || null,
-    explicacao: document.getElementById('mq-explicacao').innerHTML.trim()
+    explicacao: document.getElementById('mq-explicacao').innerHTML.trim(),
+    codigo
   };
 
   let error;
@@ -2144,7 +2239,10 @@ async function renderAdminMaterias() {
   el.innerHTML = materias.map(m => `
     <div class="questao-admin-card" style="display:flex;align-items:center;gap:12px">
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:500;color:var(--ink)">${escapeHtml(m.nome)}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:14px;font-weight:500;color:var(--ink)">${escapeHtml(m.nome)}</div>
+          ${m.codigo ? `<span class="badge" style="background:var(--ink);color:var(--gold);font-family:monospace;font-size:12px">${m.codigo}</span>` : '<span class="badge badge-red" style="font-size:11px">Sem código</span>'}
+        </div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">Ordem: ${m.ordem || 0} · ${m.ativo ? '<span style="color:var(--green)">Ativa</span>' : '<span style="color:var(--red)">Inativa</span>'}</div>
       </div>
       <div class="questao-admin-actions">
@@ -2161,11 +2259,13 @@ function abrirModalMateria(id) {
     if (!m) return;
     document.getElementById('modal-materia-title').textContent = 'Editar matéria';
     document.getElementById('mm-nome').value = m.nome || '';
+    document.getElementById('mm-codigo').value = m.codigo || '';
     document.getElementById('mm-ordem').value = m.ordem || 0;
     document.getElementById('mm-ativo').value = m.ativo ? 'true' : 'false';
   } else {
     document.getElementById('modal-materia-title').textContent = 'Nova matéria';
     document.getElementById('mm-nome').value = '';
+    document.getElementById('mm-codigo').value = '';
     document.getElementById('mm-ordem').value = materias.length + 1;
     document.getElementById('mm-ativo').value = 'true';
   }
@@ -2181,10 +2281,13 @@ function fecharModalMateria() {
 async function salvarMateria() {
   const nome = document.getElementById('mm-nome').value.trim();
   if (!nome) { alert('O nome da matéria é obrigatório.'); return; }
+  const codigo = document.getElementById('mm-codigo').value.trim().toUpperCase();
+  if (!codigo) { alert('O código da matéria é obrigatório (2 letras).'); return; }
   const btn = document.getElementById('btn-modal-materia-save');
   btn.disabled = true; btn.textContent = 'Salvando...';
   const payload = {
     nome,
+    codigo,
     ordem: parseInt(document.getElementById('mm-ordem').value) || 0,
     ativo: document.getElementById('mm-ativo').value === 'true'
   };

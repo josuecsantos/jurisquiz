@@ -776,6 +776,7 @@
         <button class="admin-tab active" onclick="switchAdminTab('usuarios')">Usuários</button>
         <button class="admin-tab" onclick="switchAdminTab('questoes')">Questões</button>
         <button class="admin-tab" onclick="switchAdminTab('materias')">Matérias</button>
+        <button class="admin-tab" onclick="switchAdminTab('comentarios')">Comentários</button>
       </div>
 
       <!-- Painel Usuários -->
@@ -814,6 +815,15 @@
           <button class="btn-add-questao" onclick="abrirModalMateria(null)">+ Nova matéria</button>
         </div>
         <div id="admin-materias-list"></div>
+      </div>
+
+      <!-- Painel Comentários -->
+      <div id="admin-panel-comentarios" class="admin-panel">
+        <div class="admin-section-header">
+          <div class="section-title" style="margin:0">Gerenciar comentários</div>
+          <button class="btn-add-questao" onclick="carregarComentariosAdmin()">↺ Atualizar</button>
+        </div>
+        <div id="admin-comentarios-list"><div class="empty">Clique em "Atualizar" para carregar os comentários.</div></div>
       </div>
     </div>
 
@@ -1953,6 +1963,7 @@ function getIniciais(c) {
 function renderComentario(c) {
   const respostas = comentarios.filter(r => r.comentario_pai_id === c.id);
   const data = new Date(c.created_at).toLocaleDateString('pt-BR');
+  const podeExcluir = isAdmin() || c.usuarios?.email === currentUser?.email;
   return '<div class="comment-box">' +
     '<div class="comment">' +
       '<div class="comment-header">' +
@@ -1963,6 +1974,7 @@ function renderComentario(c) {
       '<div class="comment-text">' + c.texto + '</div>' +
       '<div class="comment-actions">' +
         '<button class="comment-action-btn" onclick="iniciarResposta(\'' + c.id + '\', \'' + escapeAttr(getNome(c)) + '\')">↩ Responder</button>' +
+        (podeExcluir ? '<button class="comment-action-btn" style="color:var(--red);margin-left:auto" onclick="excluirComentario(\'' + c.id + '\')">✕ Excluir</button>' : '') +
       '</div>' +
     '</div>' +
     (respostas.length ? '<div class="comment-reply">' + respostas.map(r => renderRespostaComentario(r)).join('') + '</div>' : '') +
@@ -1971,6 +1983,7 @@ function renderComentario(c) {
 
 function renderRespostaComentario(c) {
   const data = new Date(c.created_at).toLocaleDateString('pt-BR');
+  const podeExcluir = isAdmin() || c.usuarios?.email === currentUser?.email;
   return '<div class="comment" style="margin-bottom:8px">' +
     '<div class="comment-header">' +
       '<div class="comment-avatar" style="width:24px;height:24px;font-size:10px;min-width:24px">' + getIniciais(c) + '</div>' +
@@ -1978,7 +1991,17 @@ function renderRespostaComentario(c) {
       '<span class="comment-date">' + data + '</span>' +
     '</div>' +
     '<div class="comment-text">' + c.texto + '</div>' +
+    (podeExcluir ? '<div class="comment-actions"><button class="comment-action-btn" style="color:var(--red)" onclick="excluirComentario(\'' + c.id + '\')">✕ Excluir</button></div>' : '') +
   '</div>';
+}
+
+async function excluirComentario(id) {
+  if (!confirm('Excluir este comentário?')) return;
+  // Exclui respostas filhas primeiro
+  await sb.from('comentarios').delete().eq('comentario_pai_id', id);
+  const { error } = await sb.from('comentarios').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  await carregarComentarios(currentQuestaoId);
 }
 
 function escapeHtml(text) {
@@ -2032,13 +2055,55 @@ function setupAdminNav() {
 
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach((t, i) => {
-    t.classList.toggle('active', (i === 0 && tab === 'usuarios') || (i === 1 && tab === 'questoes') || (i === 2 && tab === 'materias'));
+    t.classList.toggle('active',
+      (i === 0 && tab === 'usuarios') ||
+      (i === 1 && tab === 'questoes') ||
+      (i === 2 && tab === 'materias') ||
+      (i === 3 && tab === 'comentarios')
+    );
   });
   document.getElementById('admin-panel-usuarios').classList.toggle('active', tab === 'usuarios');
   document.getElementById('admin-panel-questoes').classList.toggle('active', tab === 'questoes');
   document.getElementById('admin-panel-materias').classList.toggle('active', tab === 'materias');
+  document.getElementById('admin-panel-comentarios').classList.toggle('active', tab === 'comentarios');
   if (tab === 'questoes') renderAdminQuestoes();
   if (tab === 'materias') renderAdminMaterias();
+  if (tab === 'comentarios') carregarComentariosAdmin();
+}
+
+async function carregarComentariosAdmin() {
+  const el = document.getElementById('admin-comentarios-list');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const res = await api('comentarios?order=created_at.desc&select=*,usuarios(nome,email),questoes(enunciado,codigo)&limit=100');
+  const todos = await res.json();
+  if (!todos.length) {
+    el.innerHTML = '<div class="empty">Nenhum comentário encontrado.</div>';
+    return;
+  }
+  el.innerHTML = todos.map(c => {
+    const autor = c.usuarios?.nome || c.usuarios?.email?.split('@')[0] || 'Usuário';
+    const data = new Date(c.created_at).toLocaleDateString('pt-BR');
+    const questaoInfo = c.questoes?.codigo || c.questoes?.enunciado?.substring(0, 60) + '...' || '—';
+    return `<div class="questao-admin-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">
+        <div>
+          <span class="badge badge-ink" style="font-size:11px">${autor}</span>
+          <span class="badge badge-gray" style="font-size:11px;margin-left:4px">${data}</span>
+        </div>
+        <button class="user-action-btn btn-excluir" onclick="excluirComentarioAdmin('${c.id}')">✕ Excluir</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Questão: ${escapeHtml(questaoInfo)}</div>
+      <div style="font-size:14px;color:var(--ink);line-height:1.5">${c.texto}</div>
+    </div>`;
+  }).join('');
+}
+
+async function excluirComentarioAdmin(id) {
+  if (!confirm('Excluir este comentário?')) return;
+  await sb.from('comentarios').delete().eq('comentario_pai_id', id);
+  const { error } = await sb.from('comentarios').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  carregarComentariosAdmin();
 }
 
 async function carregarAdminUsers() {

@@ -661,7 +661,7 @@
         <div class="stats-grid">
           <div class="stat-box clickable" id="stat-total-box" onclick="abrirPorStat('nao')">
             <div class="stat-num" id="s-total" style="color:var(--ink)">0</div>
-            <div class="stat-label">Questões</div>
+            <div class="stat-label">Não resolvidas</div>
             <div class="stat-hint">↗ Próxima não resolvida</div>
           </div>
           <div class="stat-box">
@@ -1476,7 +1476,11 @@ function mostrarQuestaoFiltrada() {
   const correct = filtradas.filter(q => acertadas.has(q.id)).length;
   const erros = answered - correct;
 
-  document.getElementById('s-total').textContent = filtradas.length;
+  const naoRespondidas = filtradas.filter(q => !respondidas.has(q.id));
+  const acertadasLista = filtradas.filter(q => acertadas.has(q.id));
+  const erradasLista = filtradas.filter(q => respondidas.has(q.id) && !acertadas.has(q.id));
+
+  document.getElementById('s-total').textContent = naoRespondidas.length;
   document.getElementById('s-acertos').textContent = correct;
   document.getElementById('s-erros').textContent = erros;
   document.getElementById('s-taxa').textContent = answered ? Math.round(correct / answered * 100) + '%' : '—';
@@ -1486,9 +1490,6 @@ function mostrarQuestaoFiltrada() {
   const totalBox = document.getElementById('stat-total-box');
   const acertosBox = document.getElementById('stat-acertos-box');
   const errosBox = document.getElementById('stat-erros-box');
-  const naoRespondidas = filtradas.filter(q => !respondidas.has(q.id));
-  const acertadasLista = filtradas.filter(q => acertadas.has(q.id));
-  const erradasLista = filtradas.filter(q => respondidas.has(q.id) && !acertadas.has(q.id));
 
   totalBox.style.opacity = naoRespondidas.length > 0 ? '1' : '0.5';
   totalBox.style.pointerEvents = naoRespondidas.length > 0 ? '' : 'none';

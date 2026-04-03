@@ -1855,6 +1855,8 @@ async function responder(letra, gabarito, questaoId) {
   await salvarResposta(questaoId, letra, correto);
   await carregarDados();
   await carregarComentarios(questaoId);
+  // Atualiza cores do grid em segundo plano
+  renderMateriaGrid();
 }
 
 async function salvarResposta(questaoId, resposta, acertou) {

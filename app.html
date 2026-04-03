@@ -1364,11 +1364,38 @@ async function renderMateriaGrid() {
 }
 
 async function carregarDados() {
-  const [qRes, hRes] = await Promise.all([
-    api('questoes?select=*&order=created_at.desc'),
-    api(`respostas?usuario_id=eq.${await getUserId()}&select=*,questoes(enunciado,tribunal,tema)&order=created_at.desc`)
-  ]);
-  questoes = await qRes.json();
+  const userId = await getUserId();
+
+  // Busca questões via Edge Function (protegida)
+  const session = await sb.auth.getSession();
+  const token = session.data.session?.access_token;
+
+  let questoesData = [];
+  if (token) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/functions/v1/get-questoes?limit=50`,
+        { headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      if (res.ok) {
+        questoesData = await res.json();
+      } else {
+        // Fallback para API direta se a função não estiver disponível
+        const fallback = await api('questoes?select=*&order=created_at.desc');
+        questoesData = await fallback.json();
+      }
+    } catch {
+      const fallback = await api('questoes?select=*&order=created_at.desc');
+      questoesData = await fallback.json();
+    }
+  } else {
+    const fallback = await api('questoes?select=*&order=created_at.desc');
+    questoesData = await fallback.json();
+  }
+
+  const hRes = await api(`respostas?usuario_id=eq.${userId}&select=*,questoes(enunciado,tribunal,tema)&order=created_at.desc`);
+
+  questoes = questoesData;
   historico = await hRes.json();
   preencherFiltros();
 }

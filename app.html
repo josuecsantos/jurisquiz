@@ -818,10 +818,15 @@
     <div id="quiz-alternativas"></div>
     <div id="quiz-result" style="display:none"></div>
     <div class="quiz-nav">
-      <button class="btn-quiz" onclick="closeQuiz()">← Voltar</button>
       <div style="display:flex;gap:10px">
+        <button class="btn-quiz" onclick="closeQuiz()">← Sair</button>
+        <button class="btn-quiz" id="btn-anterior" onclick="questaoAnterior()" style="display:none">‹ Anterior</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span id="quiz-contador" style="font-size:12px;color:var(--muted)"></span>
         <button class="btn-quiz primary" id="btn-confirmar" style="display:none" onclick="confirmarResposta()">Confirmar resposta</button>
         <button class="btn-quiz primary" id="btn-proxima" style="display:none" onclick="proximaQuestao()">Próxima →</button>
+        <button class="btn-quiz" id="btn-pular" onclick="proximaQuestao()" style="display:none">Pular ›</button>
       </div>
     </div>
     <div class="comments-section" id="comments-section" style="display:none">
@@ -1707,6 +1712,23 @@ async function mostrarQuizQuestao(q) {
   document.getElementById('quiz-screen').classList.add('open');
   window.currentQuestao = q;
   window.getSelectedLetra = () => selectedLetra;
+
+  // Botão anterior
+  const btnAnterior = document.getElementById('btn-anterior');
+  btnAnterior.style.display = quizIdx > 0 ? '' : 'none';
+
+  // Botão pular (só antes de responder)
+  const btnPular = document.getElementById('btn-pular');
+  btnPular.style.display = quizIdx < quizQueue.length - 1 ? '' : 'none';
+
+  // Contador
+  const contador = document.getElementById('quiz-contador');
+  if (quizQueue.length > 1) {
+    contador.textContent = `${quizIdx + 1} / ${quizQueue.length}`;
+  } else {
+    contador.textContent = '';
+  }
+
   window.scrollTo(0, 0);
 }
 
@@ -1742,6 +1764,7 @@ async function responder(letra, gabarito, questaoId) {
 
   document.getElementById('btn-proxima').style.display = '';
   document.getElementById('btn-confirmar').style.display = 'none';
+  document.getElementById('btn-pular').style.display = 'none';
 
   await salvarResposta(questaoId, letra, correto);
   await carregarDados();
@@ -1763,6 +1786,13 @@ function proximaQuestao() {
     mostrarQuizQuestao(quizQueue[quizIdx]);
   } else {
     closeQuiz();
+  }
+}
+
+function questaoAnterior() {
+  if (quizIdx > 0) {
+    quizIdx--;
+    mostrarQuizQuestao(quizQueue[quizIdx]);
   }
 }
 

@@ -290,11 +290,38 @@
       text-align: center; cursor: pointer; transition: all 0.2s;
       font-size: 13px; font-weight: 500; color: var(--ink);
       font-family: 'DM Sans', sans-serif; line-height: 1.3;
+      position: relative;
     }
     .materia-btn:active { transform: scale(0.97); }
     .materia-btn.selected { border-color: var(--gold-dark); background: var(--gold-light); color: var(--gold-dark); }
     .materia-btn-all { grid-column: 1 / -1; background: var(--ink); color: var(--gold); border-color: var(--ink); }
     .materia-btn-all.selected { background: var(--gold); color: var(--ink); border-color: var(--gold-dark); }
+
+    /* Estados de progresso das matérias */
+    .materia-btn.nova {
+      border-color: #b45309;
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .materia-btn.nova::after {
+      content: '★ Nova';
+      position: absolute; top: 5px; right: 6px;
+      font-size: 9px; font-weight: 700;
+      color: #b45309; letter-spacing: 0.3px;
+    }
+    .materia-btn.nova.selected { border-color: #b45309; background: #fde68a; color: #78350f; }
+    .materia-btn.zerada {
+      border-color: var(--green);
+      background: var(--green-light);
+      color: var(--green);
+    }
+    .materia-btn.zerada::after {
+      content: '✓';
+      position: absolute; top: 5px; right: 8px;
+      font-size: 11px; font-weight: 700;
+      color: var(--green);
+    }
+    .materia-btn.zerada.selected { border-color: var(--green); background: #a7f3d0; color: var(--green); }
     .step-nav { display: flex; gap: 10px; justify-content: space-between; margin-top: 8px; }
     .btn-step {
       padding: 12px 20px; border-radius: var(--radius); border: 1.5px solid var(--border);
@@ -649,6 +676,20 @@
         <div class="materia-grid" id="materia-grid">
           <button class="materia-btn materia-btn-all" onclick="selecionarMateria('tudo')">Todas as matérias</button>
           <div class="loading" style="grid-column:1/-1;padding:1rem"><div class="spinner"></div></div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--muted)">
+          <span style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:#fef3c7;border:1px solid #b45309;display:inline-block"></span>
+            Novas questões
+          </span>
+          <span style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:var(--green-light);border:1px solid var(--green);display:inline-block"></span>
+            Zerada
+          </span>
+          <span style="display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;border-radius:3px;background:white;border:1px solid var(--border);display:inline-block"></span>
+            Em andamento
+          </span>
         </div>
         <div class="step-nav">
           <button class="btn-step" onclick="voltarStep()">← Voltar</button>
@@ -1274,8 +1315,52 @@ async function renderMateriaGrid() {
   await carregarMaterias();
   const grid = document.getElementById('materia-grid');
   const ativas = materias.filter(m => m.ativo);
+
+  // Pré-calcula o estado de cada matéria para o usuário atual
+  const respondidas = new Set(historico.map(h => h.questao_id));
+  const acertadas   = new Set(historico.filter(h => h.acertou).map(h => h.questao_id));
+
+  // Última resposta do usuário (data mais recente no histórico)
+  const datasRespostas = historico.map(h => new Date(h.created_at || 0));
+  const ultimaResposta = datasRespostas.length ? new Date(Math.max(...datasRespostas)) : new Date(0);
+
+  function estadoMateria(nome) {
+    const questoesMateria = questoes.filter(q =>
+      q.tema && q.tema.toUpperCase() === nome.toUpperCase()
+    );
+    if (!questoesMateria.length) return 'neutra';
+
+    const total      = questoesMateria.length;
+    const resolvidas = questoesMateria.filter(q => respondidas.has(q.id)).length;
+
+    // Zerada: respondeu todas
+    if (resolvidas === total) return 'zerada';
+
+    // Nova: alguma questão foi criada APÓS a última resposta do usuário nessa matéria
+    const ultimaRespostaMateria = historico
+      .filter(h => questoesMateria.some(q => q.id === h.questao_id))
+      .map(h => new Date(h.created_at || 0));
+    const ultimaRespostaNaMateria = ultimaRespostaMateria.length
+      ? new Date(Math.max(...ultimaRespostaMateria))
+      : new Date(0);
+
+    const temNova = questoesMateria.some(q =>
+      !respondidas.has(q.id) &&
+      new Date(q.created_at || 0) > ultimaRespostaNaMateria
+    );
+
+    if (temNova) return 'nova';
+
+    // Neutro: tem pendentes mas nenhuma nova desde a última vez
+    return 'neutra';
+  }
+
   grid.innerHTML = `<button class="materia-btn materia-btn-all" onclick="selecionarMateria('tudo')">Todas as matérias</button>` +
-    ativas.map(m => `<button class="materia-btn" onclick="selecionarMateria('${escapeAttr(m.nome)}')">${escapeHtml(m.nome)}</button>`).join('');
+    ativas.map(m => {
+      const estado = estadoMateria(m.nome);
+      const cls = estado === 'nova' ? ' nova' : estado === 'zerada' ? ' zerada' : '';
+      return `<button class="materia-btn${cls}" onclick="selecionarMateria('${escapeAttr(m.nome)}')">${escapeHtml(m.nome)}</button>`;
+    }).join('');
 }
 
 async function carregarDados() {

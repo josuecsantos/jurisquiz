@@ -196,6 +196,10 @@
     .quiz-alternativa.correct { border-color: var(--green); background: var(--green-light); }
     .quiz-alternativa.wrong { border-color: var(--red); background: var(--red-light); }
     .quiz-alternativa.disabled { cursor: default; pointer-events: none; }
+    .quiz-alternativa.eliminada { opacity: 0.45; border-color: var(--border); background: #f5f5f5; }
+    .quiz-alternativa.eliminada .alt-text { text-decoration: line-through; color: var(--muted); }
+    .quiz-alternativa.eliminada .alt-letter { background: #e5e5e5; color: #aaa; border-color: #ddd; text-decoration: line-through; }
+    .quiz-alternativa.eliminada:not(.disabled):hover { opacity: 0.6; }
     .alt-letter {
       width: 34px; height: 34px; min-width: 34px; border-radius: 8px;
       border: 1.5px solid var(--border); display: flex; align-items: center;
@@ -211,6 +215,12 @@
       padding-top: 6px; text-align: justify; text-justify: inter-word;
       hyphens: auto; -webkit-hyphens: auto; flex: 1;
     }
+    .alt-eliminar-hint {
+      position: absolute; top: 6px; right: 10px;
+      font-size: 10px; color: var(--muted); opacity: 0;
+      transition: opacity 0.2s; pointer-events: none;
+    }
+    .quiz-alternativa:not(.disabled):not(.eliminada):hover .alt-eliminar-hint { opacity: 1; }
     .quiz-result {
       margin-top: 16px; padding: 18px; border-radius: var(--radius-lg); border: 1.5px solid;
     }
@@ -1810,18 +1820,36 @@ async function mostrarQuizQuestao(q) {
   ].filter(a => a.texto);
 
   const altsEl = document.getElementById('quiz-alternativas');
-  altsEl.innerHTML = '<div class="alternativas-label">Alternativas</div>' + alts.map((a, i) => {
-    return '<div class="quiz-alternativa" id="alt-' + i + '" data-idx="' + i + '" data-letra="' + a.letra + '"><div class="alt-letter">' + a.letra + '</div><div class="alt-text">' + a.texto + '</div></div>';
+  altsEl.innerHTML = '<div class="alternativas-label">Alternativas <span style="font-size:11px;color:var(--muted);font-weight:400">· duplo clique para eliminar</span></div>' + alts.map((a, i) => {
+    return '<div class="quiz-alternativa" id="alt-' + i + '" data-idx="' + i + '" data-letra="' + a.letra + '"><div class="alt-letter">' + a.letra + '</div><div class="alt-text">' + a.texto + '</div><span class="alt-eliminar-hint">2× eliminar</span></div>';
   }).join('');
 
   let selectedLetra = null;
   altsEl.querySelectorAll('.quiz-alternativa').forEach(el => {
+    // Simples clique — seleciona (ignora eliminadas)
     el.addEventListener('click', () => {
       if (quizAnswered) return;
+      if (el.classList.contains('eliminada')) return;
       altsEl.querySelectorAll('.quiz-alternativa').forEach(e => e.classList.remove('selected'));
       el.classList.add('selected');
       selectedLetra = el.dataset.letra;
       document.getElementById('btn-confirmar').style.display = '';
+    });
+
+    // Duplo clique — elimina / deselimina
+    el.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      if (quizAnswered) return;
+      const eraEliminada = el.classList.contains('eliminada');
+      el.classList.toggle('eliminada');
+      // Se estava selecionada e foi eliminada, limpa seleção
+      if (!eraEliminada && el.classList.contains('selected')) {
+        el.classList.remove('selected');
+        selectedLetra = null;
+        // Verifica se ainda tem alguma selecionada
+        const sel = altsEl.querySelector('.quiz-alternativa.selected');
+        if (!sel) document.getElementById('btn-confirmar').style.display = 'none';
+      }
     });
   });
 

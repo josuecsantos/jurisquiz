@@ -885,6 +885,10 @@
       <div class="quiz-meta-sub" id="quiz-tema">Tema</div>
     </div>
     <span class="badge badge-gold" id="quiz-dif">médio</span>
+    <div style="display:flex;align-items:center;gap:2px;margin-left:8px">
+      <button onclick="ajustarZoom(-1)" style="width:30px;height:30px;border:none;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);border-radius:6px;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background 0.15s" title="Diminuir fonte">A</button>
+      <button onclick="ajustarZoom(1)" style="width:30px;height:30px;border:none;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);border-radius:6px;cursor:pointer;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background 0.15s" title="Aumentar fonte">A</button>
+    </div>
   </div>
   <div class="quiz-body" lang="pt-BR">
     <div class="quiz-enunciado" id="quiz-enunciado"></div>
@@ -1893,6 +1897,7 @@ async function mostrarQuizQuestao(q) {
   }
 
   window.scrollTo(0, 0);
+  aplicarZoom();
 }
 
 async function confirmarResposta() {
@@ -1959,6 +1964,24 @@ function questaoAnterior() {
     quizIdx--;
     mostrarQuizQuestao(quizQueue[quizIdx]);
   }
+}
+
+// ─── ZOOM DE FONTE DO QUIZ ─────────────────────────────────────────────────
+const ZOOM_MIN = 13;
+const ZOOM_MAX = 22;
+let quizFontSize = parseInt(localStorage.getItem('quizFontSize') || '16');
+
+function aplicarZoom() {
+  const enunciado = document.getElementById('quiz-enunciado');
+  const alts = document.querySelectorAll('.alt-text');
+  if (enunciado) enunciado.style.fontSize = quizFontSize + 'px';
+  alts.forEach(a => a.style.fontSize = Math.max(quizFontSize - 1, 12) + 'px');
+}
+
+function ajustarZoom(delta) {
+  quizFontSize = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, quizFontSize + delta));
+  localStorage.setItem('quizFontSize', quizFontSize);
+  aplicarZoom();
 }
 
 function closeQuiz() {

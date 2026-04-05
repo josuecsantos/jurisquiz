@@ -1973,9 +1973,13 @@ let quizFontSize = parseInt(localStorage.getItem('quizFontSize') || '16');
 
 function aplicarZoom() {
   const enunciado = document.getElementById('quiz-enunciado');
-  const alts = document.querySelectorAll('.alt-text');
   if (enunciado) enunciado.style.fontSize = quizFontSize + 'px';
-  alts.forEach(a => a.style.fontSize = Math.max(quizFontSize - 1, 12) + 'px');
+  // Busca dentro do quiz-screen para garantir que os elementos existem
+  const quizScreen = document.getElementById('quiz-screen');
+  if (!quizScreen) return;
+  quizScreen.querySelectorAll('.alt-text').forEach(a => {
+    a.style.setProperty('font-size', Math.max(quizFontSize - 1, 12) + 'px', 'important');
+  });
 }
 
 function ajustarZoom(delta) {

@@ -1929,6 +1929,7 @@ async function responder(letra, gabarito, questaoId) {
   resEl.className = 'quiz-result ' + (correto ? 'ok' : 'fail');
   resEl.innerHTML = '<div class="quiz-result-title">' + (correto ? '✓ Correto!' : '✗ Incorreto — gabarito: ' + gabaritoTrimmed) + '</div>' +
     (q && q.explicacao ? '<div class="quiz-result-text">' + q.explicacao + '</div>' : '');
+  aplicarZoom();
 
   document.getElementById('btn-proxima').style.display = '';
   document.getElementById('btn-confirmar').style.display = 'none';
@@ -1974,12 +1975,13 @@ let quizFontSize = parseInt(localStorage.getItem('quizFontSize') || '16');
 function aplicarZoom() {
   const enunciado = document.getElementById('quiz-enunciado');
   if (enunciado) enunciado.style.fontSize = quizFontSize + 'px';
-  // Busca dentro do quiz-screen para garantir que os elementos existem
   const quizScreen = document.getElementById('quiz-screen');
   if (!quizScreen) return;
   quizScreen.querySelectorAll('.alt-text').forEach(a => {
     a.style.setProperty('font-size', Math.max(quizFontSize - 1, 12) + 'px', 'important');
   });
+  const gabarito = quizScreen.querySelector('.quiz-result-text');
+  if (gabarito) gabarito.style.setProperty('font-size', Math.max(quizFontSize - 1, 12) + 'px', 'important');
 }
 
 function ajustarZoom(delta) {

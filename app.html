@@ -1338,13 +1338,16 @@ function doLogout() {
 async function iniciarApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').classList.add('show');
-  // Usa nome, com fallback para a parte do e-mail antes do @
   const nomeExibir = currentUser.nome || currentUser.email.split('@')[0];
   document.getElementById('top-sub').textContent = 'Olá, ' + nomeExibir;
   setupAdminNav();
-  await carregarDados();
-  await renderMateriaGrid();
+  // Mostra step-tribunal imediatamente para o usuário já interagir
   renderHome();
+  // Carrega dados em paralelo sem bloquear a navegação
+  carregarDados().then(() => {
+    // Só re-renderiza o grid de matérias, sem resetar a navegação atual
+    renderMateriaGrid();
+  });
 }
 
 async function renderMateriaGrid() {

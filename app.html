@@ -488,6 +488,19 @@
 
     /* COMMENTS */
     .comments-section { margin-top: 24px; }
+
+    /* ANOTAÇÕES */
+    .anotacao-section { margin-top: 20px; padding: 16px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: var(--radius-lg); }
+    .anotacao-title { font-size: 12px; font-weight: 600; color: #92400e; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .anotacao-editor { width: 100%; min-height: 80px; border: none; background: transparent; font-size: 14px; color: var(--ink); font-family: 'DM Sans', sans-serif; line-height: 1.6; resize: none; outline: none; }
+    .anotacao-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid #fde68a; }
+    .anotacao-hint { font-size: 11px; color: #b45309; }
+    .btn-anotacao-save { padding: 6px 14px; border-radius: var(--radius); background: #92400e; color: white; border: none; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+    .btn-anotacao-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* COMPARTILHAR */
+    .btn-share { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--radius); background: var(--cream2); border: 1.5px solid var(--border); color: var(--ink); font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; width: 100%; margin-top: 12px; }
+    .btn-share:hover { border-color: var(--ink); background: white; }
     .comments-title { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
     .comments-count { background: var(--cream2); color: var(--muted); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
     .comment-box { margin-bottom: 12px; }
@@ -941,6 +954,25 @@
             </svg>
           </div>
           <span>Reportar problema nesta questão</span>
+        </button>
+
+        <!-- ANOTAÇÕES PESSOAIS -->
+        <div class="anotacao-section" id="anotacao-section" style="display:none">
+          <div class="anotacao-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Minhas anotações — visível só para você
+          </div>
+          <textarea class="anotacao-editor" id="anotacao-texto" placeholder="Escreva suas anotações sobre esta questão..."></textarea>
+          <div class="anotacao-footer">
+            <span class="anotacao-hint" id="anotacao-status">Não salvo</span>
+            <button class="btn-anotacao-save" id="btn-anotacao-save" onclick="salvarAnotacao()">Salvar anotação</button>
+          </div>
+        </div>
+
+        <!-- COMPARTILHAR -->
+        <button class="btn-share" onclick="compartilharQuestao()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Compartilhar esta questão
         </button>
       </div>
     </div>
@@ -1877,6 +1909,7 @@ async function mostrarQuizQuestao(q) {
   document.getElementById('btn-confirmar').style.display = 'none';
   document.getElementById('comments-section').style.display = 'none';
   document.getElementById('report-section').style.display = 'none';
+  document.getElementById('anotacao-section').style.display = 'none';
   document.getElementById('comments-list').innerHTML = '';
   quizAnswered = false;
   document.getElementById('quiz-screen').classList.add('open');
@@ -2012,6 +2045,7 @@ async function carregarComentarios(questaoId) {
   renderComentarios();
   document.getElementById('comments-section').style.display = 'block';
   document.getElementById('report-section').style.display = 'block';
+  carregarAnotacao(questaoId);
 }
 
 function renderComentarios() {
@@ -2421,6 +2455,72 @@ async function excluirQuestao(id) {
   if (error) { alert('Erro ao excluir: ' + error.message); return; }
   await carregarDados();
   renderAdminQuestoes();
+}
+
+// ─── ANOTAÇÕES PESSOAIS ────────────────────────────────────────────────────
+async function carregarAnotacao(questaoId) {
+  const userId = await getUserId();
+  const res = await api(`anotacoes?usuario_id=eq.${userId}&questao_id=eq.${questaoId}&select=texto`);
+  const data = await res.json();
+  const textarea = document.getElementById('anotacao-texto');
+  const status = document.getElementById('anotacao-status');
+  if (data && data[0]) {
+    textarea.value = data[0].texto;
+    status.textContent = 'Salvo';
+    status.style.color = 'var(--green)';
+  } else {
+    textarea.value = '';
+    status.textContent = 'Não salvo';
+    status.style.color = '#b45309';
+  }
+  document.getElementById('anotacao-section').style.display = 'block';
+  // Detecta mudança para mostrar status "não salvo"
+  textarea.oninput = () => {
+    status.textContent = 'Não salvo';
+    status.style.color = '#b45309';
+  };
+}
+
+async function salvarAnotacao() {
+  const btn = document.getElementById('btn-anotacao-save');
+  const texto = document.getElementById('anotacao-texto').value.trim();
+  const status = document.getElementById('anotacao-status');
+  if (!texto) return;
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  const userId = await getUserId();
+  const questaoId = currentQuestaoId;
+  // Upsert — cria ou atualiza
+  const { error } = await sb.from('anotacoes').upsert(
+    { usuario_id: userId, questao_id: questaoId, texto, updated_at: new Date().toISOString() },
+    { onConflict: 'usuario_id,questao_id' }
+  );
+  btn.disabled = false; btn.textContent = 'Salvar anotação';
+  if (error) { alert('Erro ao salvar: ' + error.message); return; }
+  status.textContent = 'Salvo ✓';
+  status.style.color = 'var(--green)';
+}
+
+// ─── COMPARTILHAR QUESTÃO ──────────────────────────────────────────────────
+async function compartilharQuestao() {
+  const q = window.currentQuestao;
+  if (!q) return;
+  const codigo = q.codigo || q.id;
+  const url = `https://jurisquiz.com.br/app.html?q=${codigo}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: 'Questão JurisQuiz',
+        text: `Resolva essa questão de jurisprudência: ${q.tribunal || ''} ${q.tema || ''}`,
+        url
+      });
+    } else {
+      await navigator.clipboard.writeText(url);
+      alert('Link copiado! Compartilhe com quem quiser — ao tentar responder, o sistema pedirá o login.');
+    }
+  } catch {
+    await navigator.clipboard.writeText(url).catch(() => {});
+    alert('Link copiado para a área de transferência!');
+  }
 }
 
 // ─── REPORT PROBLEMA ───────────────────────────────────────────────────────

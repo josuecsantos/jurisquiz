@@ -2505,17 +2505,17 @@ async function compartilharQuestao() {
   const q = window.currentQuestao;
   if (!q) return;
   const codigo = q.codigo || q.id;
-  const url = `https://jurisquiz.com.br/app.html?q=${codigo}`;
+  const url = `https://jurisquiz.com.br/questao.html?q=${codigo}`;
   try {
     if (navigator.share) {
       await navigator.share({
-        title: 'Questão JurisQuiz',
-        text: `Resolva essa questão de jurisprudência: ${q.tribunal || ''} ${q.tema || ''}`,
+        title: `JurisQuiz — ${q.tribunal || ''} ${q.tema || ''}`,
+        text: `Resolva essa questão de jurisprudência ${q.tribunal || ''} — ${q.tema || ''}`,
         url
       });
     } else {
       await navigator.clipboard.writeText(url);
-      alert('Link copiado! Compartilhe com quem quiser — ao tentar responder, o sistema pedirá o login.');
+      alert('Link copiado! Quem acessar verá a questão completa — ao tentar responder, será direcionado para o login.');
     }
   } catch {
     await navigator.clipboard.writeText(url).catch(() => {});

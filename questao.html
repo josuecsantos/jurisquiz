@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>JurisQuiz — Questão</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1a2e; --ink2: #2d2d4e; --gold: #c9a84c; --gold-light: #f5e6c0;
+      --cream: #faf8f3; --cream2: #f0ece0; --muted: #7a7a8c;
+      --green: #2d6a4f; --green-light: #d8f3dc; --red: #9b2335; --red-light: #fde8eb;
+      --border: rgba(26,26,46,0.12); --radius: 12px; --radius-lg: 18px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100vh; background: var(--cream); color: var(--ink); font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.6; }
+
+    /* HEADER */
+    .header {
+      background: var(--ink); padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .header-logo { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; color: var(--gold); text-decoration: none; }
+    .header-cta { padding: 8px 18px; border-radius: 50px; background: var(--gold); color: var(--ink); font-size: 13px; font-weight: 700; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; text-decoration: none; }
+
+    /* CONTENT */
+    .container { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+
+    /* META */
+    .meta-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 50px; font-size: 12px; font-weight: 500; }
+    .badge-ink { background: var(--ink); color: var(--gold); }
+    .badge-gray { background: var(--cream2); color: var(--muted); }
+    .badge-gold { background: var(--gold-light); color: #7a4f00; }
+
+    /* ENUNCIADO */
+    .enunciado {
+      font-family: 'Lora', serif; font-size: 16px; line-height: 1.9;
+      color: var(--ink); background: white; padding: 24px 22px;
+      border-radius: var(--radius-lg); border: 1px solid var(--border);
+      margin-bottom: 24px; text-align: justify;
+    }
+
+    /* ALTERNATIVAS */
+    .alts-label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+    .alt {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 16px; border-radius: var(--radius);
+      border: 1.5px solid var(--border); margin-bottom: 8px;
+      background: white; cursor: pointer; transition: all 0.15s;
+      position: relative;
+    }
+    .alt:hover { border-color: var(--ink); background: #f8f7f2; }
+    .alt.selected { border-color: var(--ink); background: #f0eff8; }
+    .alt-letter {
+      width: 34px; height: 34px; min-width: 34px; border-radius: 8px;
+      border: 1.5px solid var(--border); display: flex; align-items: center;
+      justify-content: center; font-size: 14px; font-weight: 700; color: var(--muted);
+      transition: all 0.15s;
+    }
+    .alt.selected .alt-letter { background: var(--ink); color: var(--gold); border-color: var(--ink); }
+    .alt-text { font-size: 14.5px; line-height: 1.7; color: var(--ink); padding-top: 6px; flex: 1; }
+
+    /* BOTÃO RESPONDER */
+    .btn-responder {
+      width: 100%; padding: 16px; border-radius: var(--radius-lg);
+      background: var(--ink); color: var(--gold);
+      border: none; font-size: 16px; font-weight: 700;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      margin-top: 20px; transition: all 0.2s;
+      display: none;
+    }
+    .btn-responder:hover { background: var(--ink2); }
+
+    /* OVERLAY DE LOGIN */
+    .login-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(26,26,46,0.85); z-index: 100;
+      align-items: flex-end; justify-content: center;
+    }
+    .login-overlay.show { display: flex; }
+    .login-card {
+      background: var(--cream); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 32px 28px 40px; width: 100%; max-width: 480px;
+      text-align: center; animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .login-card h2 { font-family: 'Lora', serif; font-size: 22px; color: var(--ink); margin-bottom: 10px; }
+    .login-card p { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+    .btn-login-main {
+      display: block; width: 100%; padding: 16px;
+      background: var(--ink); color: var(--gold);
+      border-radius: var(--radius-lg); font-size: 16px; font-weight: 700;
+      text-decoration: none; font-family: 'DM Sans', sans-serif;
+      margin-bottom: 12px; transition: all 0.2s;
+    }
+    .btn-login-main:hover { background: var(--ink2); }
+    .btn-assinar {
+      display: block; width: 100%; padding: 16px;
+      background: var(--gold); color: var(--ink);
+      border-radius: var(--radius-lg); font-size: 16px; font-weight: 700;
+      text-decoration: none; font-family: 'DM Sans', sans-serif;
+      margin-bottom: 16px; transition: all 0.2s;
+    }
+    .btn-cancelar { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+    /* PROMO BANNER */
+    .promo-banner {
+      background: var(--ink); border-radius: var(--radius-lg);
+      padding: 24px; text-align: center; margin-top: 32px;
+    }
+    .promo-banner h3 { font-family: 'Lora', serif; color: var(--gold); font-size: 18px; margin-bottom: 8px; }
+    .promo-banner p { color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 16px; }
+    .promo-banner a { display: inline-block; padding: 12px 28px; background: var(--gold); color: var(--ink); border-radius: 50px; font-weight: 700; font-size: 14px; text-decoration: none; }
+
+    /* LOADING / ERROR */
+    .loading { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--cream2); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <a href="https://jurisquiz.com.br" class="header-logo">JurisQuiz</a>
+  <a href="https://jurisquiz.com.br/app.html" class="header-cta">Já tenho acesso</a>
+</header>
+
+<div class="container" id="container">
+  <div class="loading">
+    <div class="spinner"></div>
+    Carregando questão...
+  </div>
+</div>
+
+<!-- OVERLAY DE LOGIN -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-card">
+    <h2>Quer ver o gabarito?</h2>
+    <p>Acesse o JurisQuiz para confirmar sua resposta, ver a fundamentação completa e estudar centenas de questões de jurisprudência do STJ e STF no estilo FGV.</p>
+    <a href="https://jurisquiz.com.br/app.html" class="btn-login-main">Já tenho acesso → Entrar</a>
+    <a href="https://pay.hotmart.com/X105045009B" class="btn-assinar">Assinar por R$11,99/mês</a>
+    <button class="btn-cancelar" onclick="fecharOverlay()">Agora não</button>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://medkfofzgzqpkbssyvey.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZGtmb2Z6Z3pxcGtic3N5dmV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMjUyMjAsImV4cCI6MjA4OTgwMTIyMH0.ILkI7BQ2opBAAcsKNnR1do1AftIxkGShsX4IA0NwBgM';
+
+  async function api(path) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    return res.json();
+  }
+
+  function escapeHtml(t) {
+    return (t || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function carregarQuestao() {
+    const params = new URLSearchParams(window.location.search);
+    const codigo = params.get('q');
+    const container = document.getElementById('container');
+
+    if (!codigo) {
+      container.innerHTML = '<div class="loading">Questão não encontrada.</div>';
+      return;
+    }
+
+    // Busca por código ou por ID
+    let questao = null;
+    const porCodigo = await api(`questoes?codigo=eq.${encodeURIComponent(codigo)}&select=id,tribunal,tema,tipo_tese,informativo,codigo,enunciado,alternativa_a,alternativa_b,alternativa_c,alternativa_d,alternativa_e,dificuldade`);
+    if (porCodigo.length) {
+      questao = porCodigo[0];
+    } else {
+      const porId = await api(`questoes?id=eq.${encodeURIComponent(codigo)}&select=id,tribunal,tema,tipo_tese,informativo,codigo,enunciado,alternativa_a,alternativa_b,alternativa_c,alternativa_d,alternativa_e,dificuldade`);
+      if (porId.length) questao = porId[0];
+    }
+
+    if (!questao) {
+      container.innerHTML = '<div class="loading">Questão não encontrada. Verifique o link.</div>';
+      return;
+    }
+
+    // Atualiza meta tags para compartilhamento
+    document.title = `JurisQuiz — ${questao.tribunal || ''} ${questao.codigo || ''}`;
+
+    const alts = [
+      { letra: 'A', texto: questao.alternativa_a },
+      { letra: 'B', texto: questao.alternativa_b },
+      { letra: 'C', texto: questao.alternativa_c },
+      { letra: 'D', texto: questao.alternativa_d },
+      { letra: 'E', texto: questao.alternativa_e },
+    ].filter(a => a.texto);
+
+    container.innerHTML = `
+      <div class="meta-bar">
+        ${questao.tribunal ? `<span class="badge badge-ink">${escapeHtml(questao.tribunal)}</span>` : ''}
+        ${questao.informativo ? `<span class="badge badge-gray">Informativo ${questao.informativo}</span>` : ''}
+        ${questao.tema ? `<span class="badge badge-gray">${escapeHtml(questao.tema)}</span>` : ''}
+        ${questao.tipo_tese ? `<span class="badge badge-gold">${escapeHtml(questao.tipo_tese)}</span>` : ''}
+        ${questao.dificuldade ? `<span class="badge badge-gray">${escapeHtml(questao.dificuldade)}</span>` : ''}
+      </div>
+
+      <div class="enunciado">${questao.enunciado || ''}</div>
+
+      <div class="alts-label">Alternativas</div>
+      <div id="alts-container">
+        ${alts.map(a => `
+          <div class="alt" onclick="selecionarAlt(this, '${a.letra}')">
+            <div class="alt-letter">${a.letra}</div>
+            <div class="alt-text">${a.texto}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <button class="btn-responder" id="btn-responder" onclick="abrirOverlay()">
+        Confirmar resposta e ver gabarito →
+      </button>
+
+      <div class="promo-banner">
+        <h3>Jurisprudência que aprova</h3>
+        <p>Centenas de questões do STJ e STF no estilo FGV, com gabarito fundamentado e casos concretos.</p>
+        <a href="https://jurisquiz.com.br">Conhecer o JurisQuiz</a>
+      </div>
+    `;
+  }
+
+  function selecionarAlt(el, letra) {
+    document.querySelectorAll('.alt').forEach(a => a.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('btn-responder').style.display = 'block';
+  }
+
+  function abrirOverlay() {
+    document.getElementById('login-overlay').classList.add('show');
+  }
+
+  function fecharOverlay() {
+    document.getElementById('login-overlay').classList.remove('show');
+  }
+
+  // Fecha overlay clicando fora
+  document.getElementById('login-overlay').addEventListener('click', function(e) {
+    if (e.target === this) fecharOverlay();
+  });
+
+  carregarQuestao();
+</script>
+</body>
+</html>

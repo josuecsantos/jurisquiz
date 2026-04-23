@@ -699,6 +699,10 @@
             <div class="tribunal-btn-title" id="btn-tese-especial-titulo">Recursos Repetitivos</div>
             <div class="tribunal-btn-sub" id="btn-tese-especial-sub">Teses vinculantes do STJ</div>
           </button>
+          <button class="tribunal-btn" id="btn-tese-iac" onclick="selecionarTese('iac')" style="display:none">
+            <div class="tribunal-btn-title">IAC</div>
+            <div class="tribunal-btn-sub">Incidente de Assunção de Competência</div>
+          </button>
         </div>
         <div class="step-nav">
           <button class="btn-step" onclick="voltarParaTribunal()">← Voltar</button>
@@ -762,6 +766,7 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="filtro-btn" id="ftbtn-todas" onclick="filtrarTese('todas')" style="flex:1">Todas as teses</button>
             <button class="filtro-btn" id="ftbtn-especial" onclick="filtrarTese('especial')" style="flex:1; white-space:nowrap"></button>
+            <button class="filtro-btn" id="ftbtn-iac" onclick="filtrarTese('iac')" style="display:none; white-space:nowrap">IAC</button>
           </div>
         </div>
         <div class="filtro-status">
@@ -1172,6 +1177,7 @@
           <option value="">Jurisprudência geral</option>
           <option value="Repercussão Geral">Repercussão Geral (STF)</option>
           <option value="Recursos Repetitivos">Recursos Repetitivos (STJ)</option>
+          <option value="IAC">IAC — Incidente de Assunção de Competência (STJ)</option>
         </select>
         <div class="gabarito-hint">Opcional — classifica a tese</div>
       </div>
@@ -1546,6 +1552,7 @@ function selecionarTribunal(t) {
       document.getElementById('step-tese-label').textContent = `Passo 2 — Tipo de tese (${t})`;
       document.getElementById('btn-tese-especial-titulo').textContent = isSTF ? 'Repercussão Geral' : 'Recursos Repetitivos';
       document.getElementById('btn-tese-especial-sub').textContent = isSTF ? 'Teses vinculantes do STF' : 'Teses vinculantes do STJ';
+      document.getElementById('btn-tese-iac').style.display = isSTF ? 'none' : '';
       document.getElementById('step-tese').style.display = 'block';
       document.querySelectorAll('#step-tese .tribunal-btn').forEach(b => b.classList.remove('selected'));
       atualizarDots(1);
@@ -1556,12 +1563,13 @@ function selecionarTribunal(t) {
 function selecionarTese(t) {
   filtroTese = t;
   document.querySelectorAll('#step-tese .tribunal-btn').forEach(b => b.classList.remove('selected'));
-  const map = { todas: 'btn-tese-todas', especial: 'btn-tese-especial' };
+  const map = { todas: 'btn-tese-todas', especial: 'btn-tese-especial', iac: 'btn-tese-iac' };
   document.getElementById(map[t]).classList.add('selected');
   setTimeout(() => {
     document.getElementById('step-tese').style.display = 'none';
     const teseLabel = filtroTese === 'especial'
       ? (filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos')
+      : filtroTese === 'iac' ? 'IAC'
       : 'Todas as teses';
     document.getElementById('step-materia-label').textContent = `Passo 3 — Matéria (${filtroTribunal} · ${teseLabel})`;
     document.getElementById('step-materia').style.display = 'block';
@@ -1608,14 +1616,20 @@ let filtroStatus = 'nao';
 
 function getNomeTese() {
   if (!filtroTribunal || filtroTribunal === 'tudo') return null;
+  if (filtroTese === 'iac') return 'IAC';
   return filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos';
 }
 
 function aplicarFiltroTese(lista, tese) {
-  if (tese !== 'especial') return lista;
-  const nomeTese = getNomeTese();
-  if (!nomeTese) return lista;
-  return lista.filter(q => q.tipo_tese && q.tipo_tese.toLowerCase().includes(nomeTese.toLowerCase().split(' ')[0].toLowerCase()));
+  if (tese === 'todas') return lista;
+  if (tese === 'especial') {
+    const nomeTese = filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos';
+    return lista.filter(q => q.tipo_tese && q.tipo_tese.toLowerCase().includes(nomeTese.toLowerCase().split(' ')[0].toLowerCase()));
+  }
+  if (tese === 'iac') {
+    return lista.filter(q => q.tipo_tese && q.tipo_tese.toUpperCase().includes('IAC'));
+  }
+  return lista;
 }
 
 function filtrarTese(t) {
@@ -1625,6 +1639,7 @@ function filtrarTese(t) {
   });
   document.getElementById('ftbtn-todas').classList.toggle('active-nao', t === 'todas');
   document.getElementById('ftbtn-especial').classList.toggle('active-nao', t === 'especial');
+  document.getElementById('ftbtn-iac').classList.toggle('active-nao', t === 'iac');
   mostrarQuestaoFiltrada();
 }
 
@@ -1646,9 +1661,12 @@ function mostrarQuestaoFiltrada() {
     const nomeTese = getNomeTese();
     filtroInternoEl.style.display = 'block';
     document.getElementById('filtro-tese-interna-label').textContent = `Filtrar por tipo de tese (${filtroTribunal})`;
+    const nomeTese = filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos';
     document.getElementById('ftbtn-especial').textContent = nomeTese;
+    document.getElementById('ftbtn-iac').style.display = filtroTribunal === 'STJ' ? '' : 'none';
     document.getElementById('ftbtn-todas').classList.toggle('active-nao', filtroTese === 'todas');
     document.getElementById('ftbtn-especial').classList.toggle('active-nao', filtroTese === 'especial');
+    document.getElementById('ftbtn-iac').classList.toggle('active-nao', filtroTese === 'iac');
   } else {
     filtroInternoEl.style.display = 'none';
   }

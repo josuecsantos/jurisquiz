@@ -1658,7 +1658,6 @@ function mostrarQuestaoFiltrada() {
   // Mostra/oculta filtro interno de tese
   const filtroInternoEl = document.getElementById('filtro-tese-interna');
   if (filtroTribunal && filtroTribunal !== 'tudo') {
-    const nomeTese = getNomeTese();
     filtroInternoEl.style.display = 'block';
     document.getElementById('filtro-tese-interna-label').textContent = `Filtrar por tipo de tese (${filtroTribunal})`;
     const nomeTese = filtroTribunal === 'STF' ? 'Repercussão Geral' : 'Recursos Repetitivos';

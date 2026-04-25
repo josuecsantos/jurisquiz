@@ -486,6 +486,27 @@
     .btn-modal-save:active { transform: scale(0.97); }
     .gabarito-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
+    /* BUSCA DE QUESTÕES */
+    .search-bar-wrap { position: relative; margin-bottom: 20px; }
+    .search-bar-input {
+      width: 100%; padding: 13px 16px 13px 44px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-lg);
+      background: white; font-size: 14px; color: var(--ink);
+      font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s;
+    }
+    .search-bar-input:focus { border-color: var(--ink); }
+    .search-bar-input::placeholder { color: var(--muted); }
+    .search-bar-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+    .search-bar-clear { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 18px; display: none; padding: 4px; line-height: 1; }
+    .search-results { background: white; border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-top: 4px; max-height: 420px; overflow-y: auto; }
+    .search-result-item { padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: var(--cream); }
+    .search-result-meta { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+    .search-result-text { font-size: 13px; color: var(--ink); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .search-result-text mark { background: var(--gold-light); color: var(--ink); border-radius: 2px; padding: 0 2px; }
+    .search-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 14px; }
+
     /* COMMENTS */
     .comments-section { margin-top: 24px; }
 
@@ -659,6 +680,14 @@
       <div class="welcome-header">
         <div class="welcome-greeting">Olá, <span id="welcome-nome">concurseiro</span>!</div>
         <div class="welcome-sub">O que vamos estudar hoje?</div>
+      </div>
+
+      <!-- BARRA DE BUSCA -->
+      <div class="search-bar-wrap">
+        <svg class="search-bar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7a7a8c" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-bar-input" id="home-search-input" type="text" placeholder="Buscar questão por palavra-chave, matéria ou código..." oninput="buscarQuestoes(this.value)" autocomplete="off">
+        <button class="search-bar-clear" id="home-search-clear" onclick="limparBusca()">×</button>
+        <div class="search-results" id="home-search-results" style="display:none"></div>
       </div>
 
       <div class="step-dots">
@@ -2474,7 +2503,87 @@ async function excluirQuestao(id) {
   renderAdminQuestoes();
 }
 
-// ─── ANOTAÇÕES PESSOAIS ────────────────────────────────────────────────────
+// ─── BUSCA DE QUESTÕES ─────────────────────────────────────────────────────
+let searchDebounce = null;
+
+function buscarQuestoes(termo) {
+  const clearBtn = document.getElementById('home-search-clear');
+  const resultsEl = document.getElementById('home-search-results');
+  clearBtn.style.display = termo ? 'block' : 'none';
+
+  if (!termo.trim()) {
+    resultsEl.style.display = 'none';
+    return;
+  }
+
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    const q = termo.toLowerCase().trim();
+    const resultados = questoes.filter(q2 =>
+      (q2.enunciado && q2.enunciado.toLowerCase().includes(q)) ||
+      (q2.tema && q2.tema.toLowerCase().includes(q)) ||
+      (q2.codigo && q2.codigo.toLowerCase().includes(q)) ||
+      (q2.tribunal && q2.tribunal.toLowerCase().includes(q)) ||
+      (q2.tipo_tese && q2.tipo_tese.toLowerCase().includes(q))
+    ).slice(0, 20);
+
+    if (!resultados.length) {
+      resultsEl.innerHTML = `<div class="search-empty">Nenhuma questão encontrada para "<strong>${termo}</strong>"</div>`;
+      resultsEl.style.display = 'block';
+      return;
+    }
+
+    function highlight(text, term) {
+      if (!text) return '';
+      const plain = text.replace(/<[^>]*>/g, '');
+      const idx = plain.toLowerCase().indexOf(term.toLowerCase());
+      if (idx === -1) return plain.substring(0, 120) + (plain.length > 120 ? '...' : '');
+      const start = Math.max(0, idx - 40);
+      const end = Math.min(plain.length, idx + term.length + 80);
+      let snippet = (start > 0 ? '...' : '') + plain.substring(start, end) + (end < plain.length ? '...' : '');
+      return snippet.replace(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark>${m}</mark>`);
+    }
+
+    resultsEl.innerHTML = resultados.map(q2 => `
+      <div class="search-result-item" onclick="abrirQuestaoDesBusca('${q2.id}')">
+        <div class="search-result-meta">
+          ${q2.tribunal ? `<span class="badge badge-ink" style="font-size:11px">${q2.tribunal}</span>` : ''}
+          ${q2.codigo ? `<span class="badge" style="background:var(--ink);color:var(--gold);font-family:monospace;font-size:11px">${q2.codigo}</span>` : ''}
+          ${q2.tema ? `<span class="badge badge-gray" style="font-size:11px">${q2.tema}</span>` : ''}
+          ${q2.tipo_tese ? `<span class="badge badge-gold" style="font-size:11px">${q2.tipo_tese}</span>` : ''}
+        </div>
+        <div class="search-result-text">${highlight(q2.enunciado, q)}</div>
+      </div>
+    `).join('');
+    resultsEl.style.display = 'block';
+  }, 250);
+}
+
+function limparBusca() {
+  document.getElementById('home-search-input').value = '';
+  document.getElementById('home-search-results').style.display = 'none';
+  document.getElementById('home-search-clear').style.display = 'none';
+}
+
+function abrirQuestaoDesBusca(id) {
+  limparBusca();
+  const q = questoes.find(x => x.id === id);
+  if (!q) return;
+  // Monta uma fila com só essa questão e abre
+  quizQueue = [q];
+  quizIdx = 0;
+  mostrarQuizQuestao(q);
+}
+
+// Fecha resultados ao clicar fora
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('home-search-input')?.closest('.search-bar-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('home-search-results').style.display = 'none';
+  }
+});
+
+// ─── BUSCA DE QUESTÕES ─────────────────────────────────────────────────────
 async function carregarAnotacao(questaoId) {
   const userId = await getUserId();
   const res = await api(`anotacoes?usuario_id=eq.${userId}&questao_id=eq.${questaoId}&select=texto`);

@@ -2733,25 +2733,27 @@ function parsearUmaQuestao(texto) {
   };
 }
 
-function formatarExplicacao(texto, gabarito, textoAltCorreta) {
+function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta) {
+  // Normaliza o texto: remove quebras múltiplas, preserva estrutura
+  const texto = textoOriginal.replace(/\n{2,}/g, ' ').replace(/\n/g, ' ').trim();
+
   // Todas as regex usam lookahead nos títulos conhecidos como delimitadores
   // Funcionam com ou sem \n (texto corrido colado do Word)
-  const PROX = String.raw`(?=Fundamento legal central|Base legal\b|Destaque do informativo|Dispositivos Legais|TESES PARA|Resumo da Tese|$)`;
+  const PROX = String.raw`(?=Fundamento legal central|Base legal[:\s]|Destaque do informativo|Dispositivos Legais|TESES PARA QUEST|Resumo da Tese|$)`;
 
   function sec(re) {
-    const m = texto.match(new RegExp(re + String.raw`\s*:?\s*(.*?)` + PROX, 'is'));
-    return m ? m[1].trim() : '';
+    const m = texto.match(new RegExp(re + String.raw`[:\s]*([\s\S]*?)` + PROX, 'i'));
+    return m ? m[1].replace(/^[:\s]+/,'').trim() : '';
   }
 
   let html = '';
 
   // ── Alternativa correta em itálico ────────────────────────────────────────
-  // Remove o texto da alt do início para não repetir no fundamento
-  const altRe = new RegExp(String.raw`^\s*\(?` + gabarito + String.raw`\)?[).\s](.*?)` + PROX, 'is');
+  // Pega o texto da alt correta — pode estar no início ou usar textoAltCorreta
+  const altRe = new RegExp(String.raw`\(?` + gabarito + String.raw`\)[^A-Z]*?([^(]+?)` + PROX, 'i');
   const altM  = texto.match(altRe);
   if (altM && altM[1].trim()) {
-    html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${altM[1].replace(/\n/g,' ').trim()}</p>\n`;
-    texto = texto.slice(altM[0].length).trim();
+    html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${altM[1].trim()}</p>\n`;
   } else if (textoAltCorreta) {
     html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${textoAltCorreta}</p>\n`;
   }

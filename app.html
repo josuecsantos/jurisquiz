@@ -2633,23 +2633,51 @@ function parsearUmaQuestao(texto) {
 
   const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
 
-  // Cabeçalho completo: linha 0 = "STJ – 3ª Turma – ..." (tudo até Informativo)
-  const cabecalho = linhas[0] || tribunal;
-
-  // 2. INFORMATIVO — captura número e linha completa (ex: "Informativo nº 879 – 3 de março de 2026")
+  // 2. INFORMATIVO — captura número e linha completa
   const infM = texto.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
   const informativo = infM ? parseInt(infM[1]) : null;
-  // Linha completa do informativo para exibição
   const linhaInfoM = texto.match(/(Informativo\s+n[oº°]?\s*\.?\s*\d+[^\n]*)/i);
   const linhaDatas = linhaInfoM ? linhaInfoM[1].trim() : '';
 
+  // Cabeçalho completo: junta todas as linhas desde STJ/STF até antes do Informativo
+  // O Word pode quebrar "STJ – 1ª Seção – R. Repetitivos - Tema 1.385" em várias linhas
+  let cabecalho = '';
+  {
+    const idxInf = linhaDatas ? texto.indexOf(linhaDatas) : -1;
+    const cabTexto = idxInf > 0 ? texto.substring(0, idxInf) : texto.substring(0, 200);
+    // Junta as linhas do cabeçalho (antes do Informativo) num único texto
+    cabecalho = cabTexto.split('\n').map(l => l.trim()).filter(l => l &&
+      !/^Informativo/i.test(l) && !/^Direito/i.test(l) && !/^Processo/i.test(l)
+    ).join(' – ').replace(/\s*–\s*–\s*/g, ' – ').trim();
+    // Remove duplicatas de separador
+    cabecalho = cabecalho.replace(/([–\-])\s*\1/g, '$1').trim();
+    if (!cabecalho) cabecalho = tribunal;
+  }
+
   // 3. TEMA — linha que começa com "Direito" ou "Processo"
+  // O Word pode quebrar "Direito Processual Civil – Execução Fiscal" em linhas
   let temaRaw = '';
-  let temaCompleto = ''; // inclui subtema, ex: "Direito Civil – Contratos"
-  for (let i = 0; i < Math.min(10, linhas.length); i++) {
-    if (/^Direito|^Processo/i.test(linhas[i]) && linhas[i].length > 6) {
-      temaCompleto = linhas[i].replace(/\u00a0/g, ' ').trim();
-      temaRaw = temaCompleto; break;
+  let temaCompleto = '';
+  {
+    // Acha a primeira linha com "Direito" ou "Processo"
+    let idxTema = -1;
+    for (let i = 0; i < Math.min(10, linhas.length); i++) {
+      if (/^Direito|^Processo/i.test(linhas[i]) && linhas[i].length > 4) {
+        idxTema = i; break;
+      }
+    }
+    if (idxTema >= 0) {
+      // Junta linhas seguintes que parecem continuar o tema (até Enunciado ou linha longa)
+      let partesTema = [linhas[idxTema]];
+      for (let j = idxTema + 1; j < Math.min(idxTema + 4, linhas.length); j++) {
+        const l = linhas[j];
+        if (/^Enunciado/i.test(l) || /^\(A\)/i.test(l) || l.length > 60) break;
+        if (/^[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ]/.test(l) && !/^Direito|^Processo/i.test(l) && l.length < 40) {
+          partesTema.push(l);
+        }
+      }
+      temaCompleto = partesTema.join(' – ').replace(/\u00a0/g, ' ').trim();
+      temaRaw = temaCompleto;
     }
   }
   const { tema, codigoMateria } = mapearTema(temaRaw);

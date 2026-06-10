@@ -2552,36 +2552,61 @@ let questoesParaImportar = [];
 function limparEstilosWord() {
   const el = document.getElementById('import-texto');
   if (!el) return;
+  el.innerHTML = limparHtmlWord(el.innerHTML);
+}
 
-  // Converte spans com font-weight bold em <strong>
-  el.querySelectorAll('span, b, p, div').forEach(node => {
-    const fw = node.style.fontWeight;
-    const fs = node.style.fontStyle;
-    if (fw === 'bold' || fw === '700' || fw === '600') {
-      const strong = document.createElement('strong');
-      strong.innerHTML = node.innerHTML;
-      node.replaceWith(strong);
-    } else if (fs === 'italic') {
-      const em = document.createElement('em');
-      em.innerHTML = node.innerHTML;
-      node.replaceWith(em);
-    }
-  });
+// Limpa HTML do Word preservando estrutura, negrito e itálico
+function limparHtmlWord(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
 
-  // Remove estilos mas preserva estrutura de parágrafos
-  el.querySelectorAll('[style]').forEach(node => {
+  // 1. Converte spans com font-weight → <strong>, font-style italic → <em>
+  //    Processa de dentro para fora (childNodes primeiro)
+  function processarNegrito(root) {
+    root.querySelectorAll('span[style], b[style]').forEach(node => {
+      const fw = node.style.fontWeight;
+      const fs = node.style.fontStyle;
+      if (fw === 'bold' || fw === '700' || fw === '600') {
+        const s = document.createElement('strong');
+        s.innerHTML = node.innerHTML;
+        node.replaceWith(s);
+      } else if (fs === 'italic') {
+        const e = document.createElement('em');
+        e.innerHTML = node.innerHTML;
+        node.replaceWith(e);
+      }
+    });
+  }
+  processarNegrito(d);
+
+  // 2. Remove todos os atributos de estilo/classe exceto de tags semânticas
+  d.querySelectorAll('*').forEach(node => {
     const tag = node.tagName.toLowerCase();
     if (['strong','em','b','i'].includes(tag)) return;
-    const bg = node.style.background || node.style.backgroundColor || '';
-    if (bg && (bg.includes('yellow') || bg.includes('fef') || bg.includes('ffff'))) {
-      node.style.cssText = 'background:#fef3c7';
-    } else {
-      node.removeAttribute('style');
-    }
+    node.removeAttribute('style');
+    node.removeAttribute('class');
+    node.removeAttribute('lang');
+    node.removeAttribute('dir');
+    node.removeAttribute('xml:lang');
   });
 
-  // Remove classes do Word mas mantém tags semânticas
-  el.querySelectorAll('[class]').forEach(n => n.removeAttribute('class'));
+  // 3. Substitui spans por seu conteúdo (inline, sem quebra)
+  d.querySelectorAll('span').forEach(span => {
+    span.replaceWith(...span.childNodes);
+  });
+
+  // 4. Remove tags desnecessárias do Word (w:, o:, etc via comments)
+  // Remove comentários HTML do Word
+  const html2 = d.innerHTML
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/ /g, ' ')
+    // Remove atributos residuais do Word
+    .replace(/\s*(xmlns|mso-|panose-|font-family|margin|line-height|text-indent|text-align|tab-stops)[^"']*?["'][^"']*?["']/gi, '')
+    .replace(/\s+>/g, '>')
+    .replace(/<p><\/p>/g, '<p>\u00a0</p>'); // preserva parágrafos vazios (espaçamento)
+
+  return html2;
 }
 
 // Extrai HTML limpo de um trecho de texto (preserva <strong>, <em>, <p>)
@@ -2668,6 +2693,76 @@ function htmlParaTexto(html) {
 // Placeholder
 function extrairHtmlRico(html) { return ''; }
 function marcadoresParaHtml(txt) { return txt; }
+
+// Extrai HTML da explicação a partir de ✅ CORRETA, formatando as seções
+function extrairExplicacaoHtml(htmlRico, gabarito) {
+  const d = document.createElement('div');
+  d.innerHTML = htmlRico;
+
+  // Encontra o parágrafo com ✅ CORRETA
+  let inicioIdx = -1;
+  const nos = Array.from(d.childNodes);
+  for (let i = 0; i < nos.length; i++) {
+    const txt = (nos[i].textContent || '').trim();
+    if (txt.includes('✅') || /CORRETA/i.test(txt)) {
+      inicioIdx = i;
+      break;
+    }
+  }
+  if (inicioIdx === -1) return '';
+
+  // Pega todos os parágrafos após ✅ CORRETA
+  const parExplic = nos.slice(inicioIdx + 1);
+  let html = '';
+  let dentroDestaqueAmarelo = false;
+  let dentroResumo = false;
+
+  for (const no of parExplic) {
+    if (no.nodeType !== 1) continue; // ignora nós de texto puros
+    const txt = (no.textContent || '').trim();
+    if (!txt) {
+      html += '<br>';
+      continue;
+    }
+
+    // Detecta seções especiais para aplicar styling
+    if (/^Destaque do informativo/i.test(txt)) {
+      html += `<p><strong>Destaque do informativo:</strong></p>`;
+      dentroDestaqueAmarelo = true;
+      continue;
+    }
+    if (/^Resumo da Tese para Memoriza/i.test(txt)) {
+      if (dentroDestaqueAmarelo) { html += '</div>'; dentroDestaqueAmarelo = false; }
+      html += `<p><strong>Resumo da Tese para Memorização</strong></p>`;
+      html += `<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">`;
+      dentroResumo = true;
+      continue;
+    }
+    if (/^TESES PARA QUEST/i.test(txt)) {
+      if (dentroDestaqueAmarelo) { html += '</div>'; dentroDestaqueAmarelo = false; }
+      html += `<p><strong>Teses para questão discursiva:</strong></p>`;
+      continue;
+    }
+    if (/^Dispositivos Legais/i.test(txt)) {
+      if (dentroDestaqueAmarelo) { html += '</div>'; dentroDestaqueAmarelo = false; }
+    }
+
+    // Inicia div amarela após "Destaque do informativo:"
+    if (dentroDestaqueAmarelo && !/^Dispositivos|^TESES|^Resumo/i.test(txt)) {
+      html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">`;
+      dentroDestaqueAmarelo = false;
+    }
+
+    // Usa o HTML original do parágrafo (preserva negrito/itálico)
+    html += no.outerHTML + '\n';
+  }
+
+  // Fecha divs abertas
+  if (dentroDestaqueAmarelo) html += '</div>';
+  if (dentroResumo) html += '</div>';
+
+  return html.trim();
+}
 
 // Converte HTML do Word em HTML limpo preservando negrito, itálico e parágrafos
 function obterHtmlRico(html) {
@@ -3106,13 +3201,11 @@ async function executarImport() {
     const enunciadoFinal = partesCabecalho + '\n' +
       (enunciadoRico || '<p>' + q.enunciado + '</p>');
 
-    // Explicação: usa HTML rico se disponível
+    // Explicação: extrai HTML limpo diretamente do Word (preserva negrito/espaçamento)
     const explicacaoRica = htmlRicoTotal
-      ? extrairTrechoHtml(htmlRicoTotal, 'CORRETA', null)
+      ? extrairExplicacaoHtml(htmlRicoTotal, q.gabarito)
       : '';
-    const explicacaoFinal = explicacaoRica
-      ? formatarExplicacao(q.explicacao.replace(/<[^>]+>/g,''), q.gabarito, q.alternativa_e || q.alternativa_a, explicacaoRica)
-      : q.explicacao;
+    const explicacaoFinal = explicacaoRica || q.explicacao;
 
     const payload = {
       tribunal: q.tribunal,

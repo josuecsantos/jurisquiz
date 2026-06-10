@@ -2698,69 +2698,88 @@ function marcadoresParaHtml(txt) { return txt; }
 function extrairExplicacaoHtml(htmlRico, gabarito) {
   const d = document.createElement('div');
   d.innerHTML = htmlRico;
-
-  // Encontra o parágrafo com ✅ CORRETA
-  let inicioIdx = -1;
   const nos = Array.from(d.childNodes);
+
+  // 1. Acha ✅ CORRETA
+  let idxCorreta = -1;
   for (let i = 0; i < nos.length; i++) {
     const txt = (nos[i].textContent || '').trim();
-    if (txt.includes('✅') || /CORRETA/i.test(txt)) {
-      inicioIdx = i;
-      break;
-    }
+    if (txt.includes('✅') && /CORRETA/i.test(txt)) { idxCorreta = i; break; }
   }
-  if (inicioIdx === -1) return '';
+  if (idxCorreta === -1) return '';
 
-  // Pega todos os parágrafos após ✅ CORRETA
-  const parExplic = nos.slice(inicioIdx + 1);
+  // 2. Pula a repetição das alternativas — avança até o parágrafo que começa com "(X) texto"
+  //    onde X é o gabarito, em modo itálico (a alternativa correta repetida)
+  //    Depois desse parágrafo começa o conteúdo real da explicação
+  let idxInicio = idxCorreta + 1;
+  // Pula parágrafos que são repetição das alternativas (A)-(E)
+  for (let i = idxCorreta + 1; i < nos.length; i++) {
+    const txt = (nos[i].textContent || '').trim();
+    // Para quando encontrar início de seção real
+    if (/^Fundamento legal|^Base legal|^Destaque do informativo/i.test(txt)) {
+      idxInicio = i; break;
+    }
+    // Pula parágrafos que são repetição das alternativas
+    // (começa com letra entre parênteses seguida de texto longo)
+    if (/^\([A-E]\)/.test(txt)) { idxInicio = i + 1; continue; }
+    // Pula "Gabarito:" e "Alternativa X"
+    if (/^Gabarito|^Alternativa/i.test(txt)) { idxInicio = i + 1; continue; }
+    // Se chegou na primeira seção de conteúdo, para
+    idxInicio = i;
+    break;
+  }
+
+  const parExplic = nos.slice(idxInicio);
   let html = '';
-  let dentroDestaqueAmarelo = false;
-  let dentroResumo = false;
+  let estadoDiv = null; // null | 'amarelo' | 'cinza'
+
+  function fecharDiv() {
+    if (estadoDiv) { html += '</div>\n'; estadoDiv = null; }
+  }
 
   for (const no of parExplic) {
-    if (no.nodeType !== 1) continue; // ignora nós de texto puros
+    if (no.nodeType !== 1) continue;
     const txt = (no.textContent || '').trim();
-    if (!txt) {
-      html += '<br>';
-      continue;
-    }
 
-    // Detecta seções especiais para aplicar styling
+    // Parágrafo vazio = espaçamento
+    if (!txt) { html += '<p style="margin:8px 0"></p>\n'; continue; }
+
+    // ── Seções com marcação especial ──────────────────────────────────────
     if (/^Destaque do informativo/i.test(txt)) {
-      html += `<p><strong>Destaque do informativo:</strong></p>`;
-      dentroDestaqueAmarelo = true;
+      fecharDiv();
+      html += `<p><strong>Destaque do informativo:</strong></p>\n`;
+      html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">\n`;
+      estadoDiv = 'amarelo';
       continue;
     }
     if (/^Resumo da Tese para Memoriza/i.test(txt)) {
-      if (dentroDestaqueAmarelo) { html += '</div>'; dentroDestaqueAmarelo = false; }
-      html += `<p><strong>Resumo da Tese para Memorização</strong></p>`;
-      html += `<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">`;
-      dentroResumo = true;
+      fecharDiv();
+      html += `<p><strong>Resumo da Tese para Memorização</strong></p>\n`;
+      html += `<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">\n`;
+      estadoDiv = 'cinza';
       continue;
     }
     if (/^TESES PARA QUEST/i.test(txt)) {
-      if (dentroDestaqueAmarelo) { html += '</div>'; dentroDestaqueAmarelo = false; }
-      html += `<p><strong>Teses para questão discursiva:</strong></p>`;
+      fecharDiv();
+      html += `<p><strong>Teses para questão discursiva:</strong></p>\n`;
       continue;
     }
     if (/^Dispositivos Legais/i.test(txt)) {
-      if (dentroDestaqueAmarelo) { html += '</div>'; dentroDestaqueAmarelo = false; }
+      fecharDiv();
+      // Mantém o HTML original do título (pode ter negrito/itálico)
+      html += no.outerHTML + '\n';
+      continue;
     }
 
-    // Inicia div amarela após "Destaque do informativo:"
-    if (dentroDestaqueAmarelo && !/^Dispositivos|^TESES|^Resumo/i.test(txt)) {
-      html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">`;
-      dentroDestaqueAmarelo = false;
+    // Fecha div amarela se chegar em nova seção
+    if (estadoDiv === 'amarelo' && /^Dispositivos|^TESES|^Resumo|^Fundamento|^Base legal/i.test(txt)) {
+      fecharDiv();
     }
 
-    // Usa o HTML original do parágrafo (preserva negrito/itálico)
     html += no.outerHTML + '\n';
   }
 
-  // Fecha divs abertas
-  if (dentroDestaqueAmarelo) html += '</div>';
-  if (dentroResumo) html += '</div>';
-
+  fecharDiv();
   return html.trim();
 }
 
@@ -2806,36 +2825,33 @@ function obterHtmlRico(html) {
 }
 
 // Extrai trecho de HTML entre dois marcadores de texto
+// Extrai HTML do enunciado: entre "Enunciado" e "(A)"
 function extrairTrechoHtml(htmlRico, marcadorInicio, marcadorFim) {
   const d = document.createElement('div');
   d.innerHTML = htmlRico;
-  const paragrafos = Array.from(d.querySelectorAll('p, div > br + *')).length
-    ? Array.from(d.querySelectorAll('p'))
-    : Array.from(d.childNodes).filter(n => n.nodeType === 1);
 
   let capturando = false;
   let resultado = [];
 
-  for (const p of d.childNodes) {
-    const txt = (p.textContent || '').trim();
+  for (const no of d.childNodes) {
+    const txt = (no.textContent || '').trim();
 
     if (!capturando) {
-      if (txt.includes(marcadorInicio) || new RegExp(marcadorInicio, 'i').test(txt)) {
+      // Acha o marcador de início
+      if (new RegExp(marcadorInicio, 'i').test(txt)) {
         capturando = true;
-        // Para "Enunciado": pega o parágrafo SEGUINTE (não o título)
-        // Para "CORRETA": pega tudo a partir daqui
-        if (marcadorInicio !== 'CORRETA') continue;
-        // Para CORRETA: começa a capturar a partir do próximo parágrafo
-        resultado.push(p.outerHTML || '');
+        continue; // Pula o próprio título "Enunciado"
       }
       continue;
     }
 
-    // Para se encontrar o marcador de fim
-    if (marcadorFim && new RegExp('\\(' + marcadorFim.replace('(','').replace(')','') + '\\)', 'i').test(txt)) break;
+    // Para ao encontrar "(A)" — início das alternativas
     if (marcadorFim === '(A)' && /^\(A\)/.test(txt)) break;
 
-    resultado.push(p.outerHTML || p.textContent || '');
+    // Inclui o parágrafo (mesmo vazio — preserva espaçamento)
+    if (no.nodeType === 1) {
+      resultado.push(no.outerHTML);
+    }
   }
 
   return resultado.join('\n');

@@ -2833,6 +2833,32 @@ function parsearUmaQuestao(texto, htmlRico) {
   else if (/recursos?\s+repetitivos?/i.test(texto)) tipo_tese = 'Recursos Repetitivos';
   else if (/\bIAC\b|incidente de assun[çc][aã]o/i.test(texto)) tipo_tese = 'IAC';
 
+  // 9. Substitui enunciado e explicação pelo HTML rico (preserva negrito/itálico/espaçamento)
+  if (htmlRico) {
+    const dr = document.createElement('div');
+    dr.innerHTML = htmlRico;
+    const tp = (dr.innerText || dr.textContent || '').replace(/ /g,' ');
+
+    // Enunciado rico: entre "Enunciado" e "(A)"
+    const idxEncR = tp.search(/Enunciado/i);
+    const idxAR   = tp.search(/\(A\)/);
+    if (idxEncR !== -1 && idxAR !== -1) {
+      enunciado = htmlEntreTexto(dr, idxEncR, idxAR, tp).replace(/^.*?Enunciado\s*/i,'').trim();
+    }
+
+    // Explicação rica: após "CORRETA"
+    const idxCorR = tp.indexOf('CORRETA');
+    if (idxCorR !== -1) {
+      const expRico = htmlAposTexto(dr, idxCorR + 7, tp);
+      if (expRico.trim()) {
+        explicacao = formatarExplicacao(
+          (dr.innerText || dr.textContent || '').substring(idxCorR + 7).trim(),
+          gabarito, alts[gabarito], expRico
+        );
+      }
+    }
+  }
+
   return {
     tribunal, informativo, tema, codigoMateria,
     cabecalho, linhaDatas, temaCompleto,
@@ -2843,17 +2869,94 @@ function parsearUmaQuestao(texto, htmlRico) {
   };
 }
 
-function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta) {
+// Extrai HTML entre duas posições de texto dentro de um div
+function htmlEntreTexto(div, posIni, posFim, textoRef) {
+  // Abordagem simples: percorre parágrafos e pega os que estão no intervalo
+  const ps = div.querySelectorAll('p, div > br');
+  let html = '';
+  let pos = 0;
+  for (const p of div.childNodes) {
+    const txt = (p.innerText || p.textContent || '').replace(/ /g,' ');
+    const proxPos = pos + txt.length;
+    if (proxPos > posIni && pos < posFim) {
+      if (p.outerHTML) html += p.outerHTML + '\n';
+      else if (p.textContent) html += '<p>' + p.textContent + '</p>\n';
+    }
+    pos = proxPos;
+  }
+  return html || div.innerHTML.substring(posIni, posFim);
+}
+
+// Extrai HTML a partir de uma posição de texto
+function htmlAposTexto(div, posInicio, textoRef) {
+  let html = '';
+  let pos = 0;
+  let passou = false;
+  for (const p of div.childNodes) {
+    const txt = (p.innerText || p.textContent || '').replace(/ /g,' ');
+    if (!passou && pos + txt.length > posInicio) passou = true;
+    if (passou) {
+      if (p.outerHTML) html += p.outerHTML + '\n';
+      else if (p.textContent) html += '<p>' + p.textContent + '</p>\n';
+    }
+    pos += txt.length;
+  }
+  return html;
+}
+
+function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta, htmlRicoExp) {
   // Normaliza o texto: remove quebras múltiplas, preserva estrutura
   const texto = textoOriginal.replace(/\n{2,}/g, ' ').replace(/\n/g, ' ').trim();
 
   // Todas as regex usam lookahead nos títulos conhecidos como delimitadores
-  // Funcionam com ou sem \n (texto corrido colado do Word)
   const PROX = String.raw`(?=Fundamento legal central|Base legal[:\s]|Destaque do informativo|Dispositivos Legais|TESES PARA QUEST|Resumo da Tese|$)`;
 
+  // sec() extrai texto plano (para lógica) ou HTML rico (para exibição)
   function sec(re) {
     const m = texto.match(new RegExp(re + String.raw`[:\s]*([\s\S]*?)` + PROX, 'i'));
-    return m ? m[1].replace(/^[:\s]+/,'').trim() : '';
+    if (!m) return '';
+    const conteudoTexto = m[1].replace(/^[:\s]+/,'').trim();
+    // Se temos HTML rico, extrai o HTML correspondente ao trecho de texto
+    if (htmlRicoExp) {
+      const htmlSec = secHtmlRico(re, conteudoTexto);
+      if (htmlSec) return htmlSec;
+    }
+    return conteudoTexto;
+  }
+
+  // Extrai HTML rico de uma seção usando o texto como âncora
+  function secHtmlRico(nomeRe, textoConteudo) {
+    if (!htmlRicoExp || !textoConteudo) return '';
+    const d = document.createElement('div');
+    d.innerHTML = htmlRicoExp;
+    const tp = (d.innerText || d.textContent || '').replace(/\u00a0/g,' ').replace(/\n{2,}/g,' ').replace(/\n/g,' ').trim();
+    // Acha onde começa o conteúdo da seção no texto do htmlRico
+    const idxNome = tp.search(new RegExp(nomeRe, 'i'));
+    if (idxNome === -1) return '';
+    const idxConteudo = tp.indexOf(textoConteudo.substring(0,30), idxNome);
+    if (idxConteudo === -1) return '';
+    // Acha o próximo delimitador de seção
+    const proxReStr = PROX.replace('(?=','').replace(/\)$/,'');
+    const proxRe = new RegExp(proxReStr, 'i');
+    const proxM = tp.slice(idxConteudo).search(proxRe);
+    const idxFim = proxM > 0 ? idxConteudo + proxM : tp.length;
+    // Extrai os parágrafos HTML correspondentes
+    return htmlEntrePosTp(d, idxConteudo, idxFim, tp);
+  }
+
+  // Extrai HTML dos parágrafos que correspondem a uma faixa de posição no texto
+  function htmlEntrePosTp(div, posIni, posFim, tp) {
+    let html = '';
+    let pos = 0;
+    for (const node of div.childNodes) {
+      const t = (node.innerText || node.textContent || '').replace(/\u00a0/g,' ').replace(/\n/g,' ').trim();
+      const proxPos = pos + t.length;
+      if (proxPos > posIni && pos < posFim && t.length > 0) {
+        html += (node.outerHTML || ('<span>' + t + '</span>')) + '\n';
+      }
+      pos = proxPos + 1;
+    }
+    return html.trim();
   }
 
   let html = '';

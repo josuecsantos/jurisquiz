@@ -2638,6 +2638,10 @@ function htmlParaTexto(html) {
     }
   });
 
+  // Flag para controlar se estamos na zona de conteúdo (após Gabarito)
+  // Negrito só é preservado no conteúdo, não no cabeçalho/alternativas
+  let zonaConteudo = false;
+
   function extrairTextoNos(node) {
     let txt = '';
     for (const child of node.childNodes) {
@@ -2648,11 +2652,16 @@ function htmlParaTexto(html) {
         if (tag === 'br') {
           txt += '\n';
         } else if (['p','div','li','tr'].includes(tag)) {
-          txt += '\n' + extrairTextoNos(child) + '\n';
+          const inner = extrairTextoNos(child);
+          // Detecta início da zona de conteúdo (após ✅ CORRETA ou Gabarito)
+          if (/✅|CORRETA/i.test(inner)) zonaConteudo = true;
+          txt += '\n' + inner + '\n';
         } else if (['b','strong'].includes(tag)) {
-          txt += '**' + extrairTextoNos(child) + '**';
+          const inner = extrairTextoNos(child);
+          txt += zonaConteudo ? '**' + inner + '**' : inner;
         } else if (['i','em'].includes(tag)) {
-          txt += '_' + extrairTextoNos(child) + '_';
+          const inner = extrairTextoNos(child);
+          txt += zonaConteudo ? '_' + inner + '_' : inner;
         } else {
           txt += extrairTextoNos(child);
         }

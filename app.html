@@ -2589,11 +2589,26 @@ function mapearTema(textoTema) {
 function htmlParaTexto(html) {
   const d = document.createElement('div');
   d.innerHTML = html;
-  // Garante que cada bloco vire uma linha
-  d.querySelectorAll('p,div,br,li').forEach(el => {
-    el.insertAdjacentText('beforebegin', '\n');
-  });
-  return (d.innerText || d.textContent || '')
+  // Extrai texto percorrendo todos os nós — captura texto dentro de spans aninhados do Word
+  function extrairTextoNos(node) {
+    let txt = '';
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        txt += child.textContent;
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const tag = child.tagName.toLowerCase();
+        if (tag === 'br') {
+          txt += '\n';
+        } else if (['p','div','li','tr'].includes(tag)) {
+          txt += '\n' + extrairTextoNos(child) + '\n';
+        } else {
+          txt += extrairTextoNos(child);
+        }
+      }
+    }
+    return txt;
+  }
+  return extrairTextoNos(d)
     .replace(/\u00a0/g, ' ')
     .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
     .replace(/\n{3,}/g,'\n\n')

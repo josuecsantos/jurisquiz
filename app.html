@@ -846,6 +846,7 @@
         <button class="admin-tab" onclick="switchAdminTab('questoes')">Questões</button>
         <button class="admin-tab" onclick="switchAdminTab('materias')">Matérias</button>
         <button class="admin-tab" onclick="switchAdminTab('comentarios')">Comentários</button>
+        <button class="admin-tab" onclick="switchAdminTab('importar')" style="color:var(--gold)">⬆ Importar</button>
       </div>
 
       <!-- Painel Usuários -->
@@ -886,6 +887,54 @@
         <div id="admin-materias-list"></div>
       </div>
 
+      <!-- Painel Importar -->
+      <div id="admin-panel-importar" class="admin-panel">
+        <div class="admin-section-header">
+          <div class="section-title" style="margin:0">Importar questões em lote</div>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+          Cole o texto das questões no formato padrão abaixo. Você pode colar várias questões de uma vez — o sistema detecta automaticamente o início de cada questão.
+        </p>
+
+        <!-- Formato esperado -->
+        <div style="background:var(--ink);border-radius:var(--radius);padding:16px;margin-bottom:16px;font-family:monospace;font-size:11px;color:rgba(255,255,255,0.6);line-height:1.8">
+          <div style="color:var(--gold);font-size:11px;margin-bottom:8px;font-family:'DM Sans',sans-serif;font-weight:600">FORMATO ESPERADO:</div>
+          STJ – 1ª Seção<br>
+          Informativo nº 878 – 24 de fevereiro de 2026<br>
+          Direito Processual Civil - Competência<br>
+          <br>
+          Enunciado<br>
+          [texto da questão...]<br>
+          (A) alternativa a<br>
+          (B) alternativa b<br>
+          ...<br>
+          GABARITO:<br>
+          Alternativa D<br>
+          [explicação...]<br>
+          Resumo da Tese para Memorização<br>
+          [resumo...]
+        </div>
+
+        <textarea id="import-texto" style="width:100%;min-height:280px;border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;outline:none;line-height:1.6" placeholder="Cole aqui o texto das questões..."></textarea>
+
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn-add-questao" onclick="previewImport()" style="background:var(--cream2);color:var(--ink);border:1.5px solid var(--border)">
+            👁 Pré-visualizar
+          </button>
+          <button class="btn-add-questao" id="btn-importar-executar" onclick="executarImport()" style="display:none">
+            ⬆ Importar todas
+          </button>
+          <button onclick="document.getElementById('import-texto').value='';document.getElementById('import-preview').innerHTML='';document.getElementById('btn-importar-executar').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px">
+            Limpar
+          </button>
+        </div>
+
+        <div id="import-preview" style="margin-top:20px"></div>
+      </div>
+        <div class="admin-section-header">
+          <div class="section-title" style="margin:0">Gerenciar comentários</div>
+          <button class="btn-add-questao" onclick="carregarComentariosAdmin()">↺ Atualizar</button>
+        </div>
       <!-- Painel Comentários -->
       <div id="admin-panel-comentarios" class="admin-panel">
         <div class="admin-section-header">
@@ -894,7 +943,6 @@
         </div>
         <div id="admin-comentarios-list"><div class="empty">Clique em "Atualizar" para carregar os comentários.</div></div>
       </div>
-    </div>
 
   </div>
   <nav class="bottom-nav">
@@ -2211,13 +2259,15 @@ function switchAdminTab(tab) {
       (i === 0 && tab === 'usuarios') ||
       (i === 1 && tab === 'questoes') ||
       (i === 2 && tab === 'materias') ||
-      (i === 3 && tab === 'comentarios')
+      (i === 3 && tab === 'comentarios') ||
+      (i === 4 && tab === 'importar')
     );
   });
   document.getElementById('admin-panel-usuarios').classList.toggle('active', tab === 'usuarios');
   document.getElementById('admin-panel-questoes').classList.toggle('active', tab === 'questoes');
   document.getElementById('admin-panel-materias').classList.toggle('active', tab === 'materias');
   document.getElementById('admin-panel-comentarios').classList.toggle('active', tab === 'comentarios');
+  document.getElementById('admin-panel-importar').classList.toggle('active', tab === 'importar');
   if (tab === 'questoes') renderAdminQuestoes();
   if (tab === 'materias') renderAdminMaterias();
   if (tab === 'comentarios') carregarComentariosAdmin();
@@ -2501,6 +2551,151 @@ async function excluirQuestao(id) {
   if (error) { alert('Erro ao excluir: ' + error.message); return; }
   await carregarDados();
   renderAdminQuestoes();
+}
+
+// ─── IMPORTADOR EM LOTE ────────────────────────────────────────────────────
+let questoesParaImportar = [];
+
+function parsearQuestoes(texto) {
+  const blocos = texto.split(/(?=(?:STJ|STF)\s*[–\-—])/i).filter(b => b.trim().length > 100);
+  if (blocos.length === 0) blocos.push(texto);
+  const resultado = [];
+  for (const bloco of blocos) {
+    try {
+      const q = parsearUmaQuestao(bloco.trim());
+      if (q) resultado.push(q);
+    } catch (e) { console.warn('Erro ao parsear bloco:', e); }
+  }
+  return resultado;
+}
+
+function parsearUmaQuestao(texto) {
+  const tribunalMatch = texto.match(/^(STJ|STF)/i);
+  if (!tribunalMatch) return null;
+  const tribunal = tribunalMatch[1].toUpperCase();
+
+  const infMatch = texto.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
+  const informativo = infMatch ? parseInt(infMatch[1]) : null;
+
+  // Matéria — linha com "Direito" ou com " - "
+  const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
+  let tema = '';
+  for (let i = 0; i < Math.min(6, linhas.length); i++) {
+    if (/^Direito|^Processo/i.test(linhas[i]) || (linhas[i].includes(' - ') && i > 1)) {
+      tema = linhas[i].trim();
+      break;
+    }
+  }
+
+  // Enunciado — entre "Enunciado" e primeira alternativa
+  const enunciadoMatch = texto.match(/Enunciado\s*\n([\s\S]*?)(?=\(A\)|^A\))/im);
+  if (!enunciadoMatch) return null;
+  const enunciado = enunciadoMatch[1].trim();
+
+  // Alternativas
+  const alts = {};
+  const altRegex = /\(([A-E])\)\s*([\s\S]*?)(?=\n\([A-E]\)|\nGABARITO|$)/gi;
+  let m;
+  while ((m = altRegex.exec(texto)) !== null) {
+    alts[m[1].toUpperCase()] = m[2].trim();
+  }
+  if (Object.keys(alts).length < 4) return null;
+
+  // Gabarito
+  const gabMatch = texto.match(/Alternativa\s+([A-E])/i);
+  const gabarito = gabMatch ? gabMatch[1].toUpperCase() : null;
+  if (!gabarito) return null;
+
+  // Explicação
+  let explicacao = '';
+  const expMatch = texto.match(/Alternativa\s+[A-E][^\n]*\n([\s\S]*?)(?=Resumo da Tese|TESES PARA|Dispositivos Legais|__________|$)/i);
+  if (expMatch) {
+    explicacao = expMatch[1].replace(/^✅.*\n?/, '').replace(/^\([A-E]\).*\n?/, '').trim();
+    if (explicacao.length > 2000) explicacao = explicacao.substring(0, 2000) + '...';
+  }
+
+  // Tipo de tese automático
+  let tipo_tese = '';
+  const tt = texto.toLowerCase();
+  if (tt.includes('repercussão geral') || tt.includes('repercussao geral')) tipo_tese = 'Repercussão Geral';
+  else if (tt.includes('recursos repetitivos') || tt.includes('recurso repetitivo')) tipo_tese = 'Recursos Repetitivos';
+  else if (tt.includes('incidente de assunção') || / iac /i.test(texto)) tipo_tese = 'IAC';
+
+  // Matéria cadastrada
+  const mat = materias.find(mat =>
+    tema.toLowerCase().includes(mat.nome.toLowerCase().split(' ')[0]) ||
+    mat.nome.toLowerCase().includes(tema.toLowerCase().split(' - ')[0].trim())
+  );
+  const codigoMateria = mat?.codigo || '';
+  const temaNormalizado = mat?.nome || tema;
+
+  return {
+    tribunal, informativo, tema: temaNormalizado, codigoMateria,
+    enunciado, gabarito, explicacao, tipo_tese,
+    alternativa_a: alts['A'] || '', alternativa_b: alts['B'] || '',
+    alternativa_c: alts['C'] || '', alternativa_d: alts['D'] || '',
+    alternativa_e: alts['E'] || '',
+  };
+}
+
+function previewImport() {
+  const texto = document.getElementById('import-texto').value;
+  if (!texto.trim()) { alert('Cole o texto das questões antes de pré-visualizar.'); return; }
+  questoesParaImportar = parsearQuestoes(texto);
+  const el = document.getElementById('import-preview');
+  if (!questoesParaImportar.length) {
+    el.innerHTML = '<div class="empty">Nenhuma questão reconhecida. Verifique o formato.</div>';
+    document.getElementById('btn-importar-executar').style.display = 'none';
+    return;
+  }
+  el.innerHTML = `
+    <div style="font-size:14px;font-weight:600;color:var(--green);margin-bottom:12px">✓ ${questoesParaImportar.length} questão(ões) identificada(s)</div>
+    ${questoesParaImportar.map((q, i) => `
+      <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <span class="badge badge-ink">${q.tribunal}</span>
+          ${q.informativo ? `<span class="badge badge-gray">Inf. ${q.informativo}</span>` : ''}
+          ${q.tema ? `<span class="badge badge-gray">${q.tema}</span>` : '<span class="badge" style="background:#fde8eb;color:#9b2335">⚠ Sem matéria</span>'}
+          ${q.tipo_tese ? `<span class="badge badge-gold">${q.tipo_tese}</span>` : ''}
+          <span class="badge" style="background:var(--green-light);color:var(--green)">Gab: ${q.gabarito}</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5">${q.enunciado.substring(0, 160)}...</div>
+      </div>`).join('')}`;
+  document.getElementById('btn-importar-executar').style.display = '';
+}
+
+async function executarImport() {
+  if (!questoesParaImportar.length) return;
+  const btn = document.getElementById('btn-importar-executar');
+  btn.disabled = true;
+  let sucesso = 0, erros = 0;
+  for (let i = 0; i < questoesParaImportar.length; i++) {
+    const q = questoesParaImportar[i];
+    btn.textContent = `Importando ${i + 1} / ${questoesParaImportar.length}...`;
+    await carregarDados();
+    let codigo = null;
+    if (q.tribunal && q.informativo && q.codigoMateria) {
+      codigo = await gerarCodigo(q.tribunal, q.informativo, q.codigoMateria);
+    }
+    const { error } = await sb.from('questoes').insert({
+      tribunal: q.tribunal, informativo: q.informativo, tema: q.tema,
+      enunciado: q.enunciado, alternativa_a: q.alternativa_a, alternativa_b: q.alternativa_b,
+      alternativa_c: q.alternativa_c, alternativa_d: q.alternativa_d, alternativa_e: q.alternativa_e,
+      gabarito: q.gabarito, explicacao: q.explicacao, tipo_tese: q.tipo_tese || null,
+      dificuldade: 'médio', codigo
+    });
+    if (error) { erros++; console.error(error); } else sucesso++;
+  }
+  await carregarDados();
+  btn.disabled = false; btn.textContent = '⬆ Importar todas';
+  questoesParaImportar = [];
+  document.getElementById('import-texto').value = '';
+  document.getElementById('import-preview').innerHTML = `
+    <div style="background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--radius);padding:16px;text-align:center">
+      <div style="font-size:16px;font-weight:700;color:var(--green);margin-bottom:4px">✓ Importação concluída!</div>
+      <div style="font-size:13px;color:var(--green)">${sucesso} questão(ões) importada(s)${erros ? ` · ${erros} com erro` : ''}</div>
+    </div>`;
+  switchAdminTab('questoes');
 }
 
 // ─── BUSCA DE QUESTÕES ─────────────────────────────────────────────────────

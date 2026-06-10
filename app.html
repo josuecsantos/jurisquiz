@@ -2667,16 +2667,23 @@ function parsearUmaQuestao(texto) {
       }
     }
     if (idxTema >= 0) {
-      // Junta linhas seguintes que parecem continuar o tema (até Enunciado ou linha longa)
+      // O Word pode quebrar "Direito Processual Civil – Execução Fiscal" em várias linhas:
+      // ["Direito Processual", "Civil", "–", "Execução Fiscal"] ou similar
+      // Estratégia: junta linhas seguintes até achar Informativo, Enunciado ou (A)
       let partesTema = [linhas[idxTema]];
-      for (let j = idxTema + 1; j < Math.min(idxTema + 4, linhas.length); j++) {
+      for (let j = idxTema + 1; j < Math.min(idxTema + 6, linhas.length); j++) {
         const l = linhas[j];
-        if (/^Enunciado/i.test(l) || /^\(A\)/i.test(l) || l.length > 60) break;
-        if (/^[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ]/.test(l) && !/^Direito|^Processo/i.test(l) && l.length < 40) {
-          partesTema.push(l);
-        }
+        // Para ao encontrar marcadores estruturais
+        if (/^Enunciado/i.test(l) || /^\(A\)/i.test(l) || /^Informativo/i.test(l)) break;
+        // Para se for linha longa (provavelmente enunciado)
+        if (l.length > 80) break;
+        // Adiciona a linha ao tema
+        partesTema.push(l);
       }
-      temaCompleto = partesTema.join(' – ').replace(/\u00a0/g, ' ').trim();
+      // Junta tudo com espaço (não com –) e depois normaliza os separadores reais
+      temaCompleto = partesTema.join(' ').replace(/\u00a0/g, ' ').trim();
+      // Normaliza múltiplos espaços
+      temaCompleto = temaCompleto.replace(/\s{2,}/g, ' ').trim();
       temaRaw = temaCompleto;
     }
   }

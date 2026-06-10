@@ -2681,15 +2681,24 @@ function parsearUmaQuestao(texto) {
   if (!gabarito) return null;
 
   // 7. EXPLICAÇÃO — tudo após "✅ CORRETA" até o fim
+  // Funciona com ou sem \n (texto corrido colado do Word)
   let explicacao = '';
-  const corretaM = texto.match(/✅\s*CORRETA[^\n]*\n([\s\S]*)$/i);
-  if (corretaM) {
-    explicacao = formatarExplicacao(corretaM[1].trim(), gabarito, alts[gabarito]);
+  const posCorreta = texto.indexOf('✅');
+  if (posCorreta !== -1) {
+    // Acha "CORRETA" e pega tudo depois — o conteúdo começa logo após
+    const posAposCorreta = texto.indexOf('CORRETA', posCorreta);
+    if (posAposCorreta !== -1) {
+      explicacao = formatarExplicacao(texto.substring(posAposCorreta + 7).trim(), gabarito, alts[gabarito]);
+    }
   } else {
-    // Fallback: pega tudo após a linha "Alternativa X"
-    const posAlt = texto.search(new RegExp(`Alternativa\\s+${gabarito}\\b`, 'i'));
-    if (posAlt !== -1) {
-      explicacao = formatarExplicacao(texto.substring(posAlt).trim(), gabarito, alts[gabarito]);
+    // Sem ✅: pega tudo após "Gabarito" + letra
+    const posGab = texto.search(new RegExp('Gabarito', 'i'));
+    if (posGab !== -1) {
+      // Pula "Gabarito: Alternativa X" e pega o restante
+      const posApos = texto.search(new RegExp('(?<=Gabarito[\\s\\S]{0,40}' + gabarito + ')([\\s\\S]+)', 'i'));
+      if (posApos !== -1) {
+        explicacao = formatarExplicacao(texto.substring(posApos).trim(), gabarito, alts[gabarito]);
+      }
     }
   }
 

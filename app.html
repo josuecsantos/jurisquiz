@@ -2638,10 +2638,6 @@ function htmlParaTexto(html) {
     }
   });
 
-  // Flag para controlar se estamos na zona de conteúdo (após Gabarito)
-  // Negrito só é preservado no conteúdo, não no cabeçalho/alternativas
-  let zonaConteudo = false;
-
   function extrairTextoNos(node) {
     let txt = '';
     for (const child of node.childNodes) {
@@ -2652,16 +2648,7 @@ function htmlParaTexto(html) {
         if (tag === 'br') {
           txt += '\n';
         } else if (['p','div','li','tr'].includes(tag)) {
-          const inner = extrairTextoNos(child);
-          // Detecta início da zona de conteúdo (após ✅ CORRETA ou Gabarito)
-          if (/✅|CORRETA/i.test(inner)) zonaConteudo = true;
-          txt += '\n' + inner + '\n';
-        } else if (['b','strong'].includes(tag)) {
-          const inner = extrairTextoNos(child);
-          txt += zonaConteudo ? '**' + inner + '**' : inner;
-        } else if (['i','em'].includes(tag)) {
-          const inner = extrairTextoNos(child);
-          txt += zonaConteudo ? '_' + inner + '_' : inner;
+          txt += '\n' + extrairTextoNos(child) + '\n';
         } else {
           txt += extrairTextoNos(child);
         }
@@ -2685,7 +2672,7 @@ function marcadoresParaHtml(txt) { return txt; }
 function parsearQuestoes(html) {
   const texto = htmlParaTexto(html);
   // Divide em blocos por cabeçalho STJ/STF (início de linha)
-  const partes = texto.split(/(?=(?:^|\n)(STJ|STF)\s*[–\-—])/im).filter(b => b.trim().length > 100);
+  const partes = texto.split(/(?=(?:^|\n)(STJ|STF)(?:\s*[–\-—]|\s*\n))/im).filter(b => b.trim().length > 100);
   const blocos = partes.length > 1 ? partes : [texto];
   return blocos.map(b => parsearUmaQuestao(b.trim())).filter(Boolean);
 }

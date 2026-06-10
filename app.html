@@ -2616,16 +2616,25 @@ function parsearUmaQuestao(texto) {
   if (!tribunalM) return null;
   const tribunal = tribunalM[1].toUpperCase();
 
-  // 2. INFORMATIVO
+  const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
+
+  // Cabeçalho completo: linha 0 = "STJ – 3ª Turma – ..." (tudo até Informativo)
+  const cabecalho = linhas[0] || tribunal;
+
+  // 2. INFORMATIVO — captura número e linha completa (ex: "Informativo nº 879 – 3 de março de 2026")
   const infM = texto.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
   const informativo = infM ? parseInt(infM[1]) : null;
+  // Linha completa do informativo para exibição
+  const linhaInfoM = texto.match(/(Informativo\s+n[oº°]?\s*\.?\s*\d+[^\n]*)/i);
+  const linhaDatas = linhaInfoM ? linhaInfoM[1].trim() : '';
 
-  // 3. TEMA — linha que começa com "Direito" ou "Processo" (ex: "Direito Processual Civil – Execução Fiscal")
-  const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
+  // 3. TEMA — linha que começa com "Direito" ou "Processo"
   let temaRaw = '';
+  let temaCompleto = ''; // inclui subtema, ex: "Direito Civil – Contratos"
   for (let i = 0; i < Math.min(10, linhas.length); i++) {
     if (/^Direito|^Processo/i.test(linhas[i]) && linhas[i].length > 6) {
-      temaRaw = linhas[i]; break;
+      temaCompleto = linhas[i].replace(/\u00a0/g, ' ').trim();
+      temaRaw = temaCompleto; break;
     }
   }
   const { tema, codigoMateria } = mapearTema(temaRaw);
@@ -2692,6 +2701,7 @@ function parsearUmaQuestao(texto) {
 
   return {
     tribunal, informativo, tema, codigoMateria,
+    cabecalho, linhaDatas, temaCompleto,
     enunciado, gabarito, explicacao, tipo_tese,
     alternativa_a: alts['A'] || '', alternativa_b: alts['B'] || '',
     alternativa_c: alts['C'] || '', alternativa_d: alts['D'] || '',
@@ -2869,20 +2879,29 @@ async function executarImport() {
 
   let ok = 0, erros = 0;
   for (const q of questoesParaImportar) {
-    // Gera código automático se não tiver
-    const prefixo = q.codigoMateria || (q.tribunal === 'STJ' ? 'STJ' : 'STF');
-    // Busca o próximo número disponível
-    const existentes = questoes.filter(x => x.codigo && x.codigo.startsWith(prefixo));
-    const nums = existentes.map(x => parseInt((x.codigo || '').replace(/\D/g,''))).filter(n => !isNaN(n));
-    const proximo = nums.length ? Math.max(...nums) + 1 : 1;
-    const codigo = `${prefixo}${String(proximo).padStart(3,'0')}`;
+    // Gera código usando o mesmo padrão do modal manual
+    const codigo = await gerarCodigo(q.tribunal, q.informativo, q.codigoMateria);
+
+    // Monta cabeçalho como HTML para exibição no quiz (igual ao padrão das questões manuais)
+    const linhasTribunalCab = (q.cabecalho || q.tribunal || '').trim();
+    const linhasInf = q.linhaDatas || (q.informativo ? 'Informativo nº ' + q.informativo : '');
+    const linhasTema = (q.temaCompleto || q.tema || '').trim();
+
+    const partesCabecalho = [
+      linhasTribunalCab ? `<p><strong>${linhasTribunalCab}</strong></p>` : '',
+      linhasInf         ? `<p>${linhasInf}</p>` : '',
+      linhasTema        ? `<p><strong>${linhasTema}</strong></p>` : '',
+      `<p><strong>Enunciado</strong></p>`,
+    ].filter(Boolean).join('\n');
+
+    const enunciadoFinal = partesCabecalho + '\n<p>' + q.enunciado + '</p>';
 
     const payload = {
       tribunal: q.tribunal,
       informativo: q.informativo,
       tema: q.tema,
       tipo_tese: q.tipo_tese || null,
-      enunciado: q.enunciado,
+      enunciado: enunciadoFinal,
       gabarito: q.gabarito,
       alternativa_a: q.alternativa_a,
       alternativa_b: q.alternativa_b,
@@ -2891,14 +2910,16 @@ async function executarImport() {
       alternativa_e: q.alternativa_e,
       explicacao: q.explicacao,
       codigo,
-      // materia_id removido — coluna não existe na tabela
+      dificuldade: 'médio',
     };
 
     try {
-      const res = await api('questoes', { method: 'POST', body: JSON.stringify(payload) });
-      if (res && !res.error) ok++;
-      else erros++;
+      const { data, error } = await sb.from('questoes').insert(payload).select();
+      if (error) { console.error('[import] erro:', error); erros++; }
+      else if (!data || data.length === 0) { console.error('[import] insert silencioso'); erros++; }
+      else ok++;
     } catch(e) {
+      console.error('[import] exception:', e);
       erros++;
     }
   }

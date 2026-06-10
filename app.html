@@ -2508,6 +2508,7 @@ async function salvarQuestaoAdmin() {
     tipo_tese: document.getElementById('mq-tipo-tese').value || null,
     explicacao: document.getElementById('mq-explicacao').innerHTML.trim(),
     codigo
+    // materia_id removido — coluna não existe na tabela
   };
 
   let error, data;
@@ -2890,7 +2891,7 @@ async function executarImport() {
       alternativa_e: q.alternativa_e,
       explicacao: q.explicacao,
       codigo,
-      materia_id: q.codigoMateria ? (materias.find(m => m.codigo === q.codigoMateria)?.id || null) : null,
+      // materia_id removido — coluna não existe na tabela
     };
 
     try {

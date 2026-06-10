@@ -2623,19 +2623,6 @@ function htmlParaTexto(html) {
   const d = document.createElement('div');
   d.innerHTML = html;
 
-  // Converte spans bold/italic do Word em marcadores preserváveis
-  d.querySelectorAll('span, b, strong').forEach(node => {
-    const fw = node.style && (node.style.fontWeight === 'bold' || node.style.fontWeight === '700');
-    const isB = ['b','strong'].includes(node.tagName.toLowerCase());
-    if (fw || isB) {
-      node.innerHTML = '«»' + node.innerHTML + '«/»';
-    }
-  });
-  d.querySelectorAll('i, em').forEach(node => {
-    node.innerHTML = '‹›' + node.innerHTML + '‹/›';
-  });
-
-  // Percorre nós preservando estrutura de parágrafos
   function extrairTextoNos(node) {
     let txt = '';
     for (const child of node.childNodes) {
@@ -2655,31 +2642,63 @@ function htmlParaTexto(html) {
     return txt;
   }
 
-  let texto = extrairTextoNos(d)
+  return extrairTextoNos(d)
     .replace(/\u00a0/g, ' ')
     .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
-
-  return texto;
 }
 
-// Converte marcadores de negrito/itálico de volta para HTML
-function marcadoresParaHtml(texto) {
-  return texto
-    .replace(/«»(.*?)«\/»/gs, '<strong>$1</strong>')
-    .replace(/‹›(.*?)‹\/›/gs, '<em>$1</em>');
+// Extrai HTML limpo de um trecho preservando negrito/itálico do Word
+function extrairHtmlRico(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+
+  // Converte spans com font-weight bold → <strong>, font-style italic → <em>
+  d.querySelectorAll('span[style], font[style]').forEach(node => {
+    const fw = node.style.fontWeight;
+    const fs = node.style.fontStyle;
+    if (fw === 'bold' || fw === '700' || fw === '600') {
+      const s = document.createElement('strong');
+      s.innerHTML = node.innerHTML;
+      node.replaceWith(s);
+    } else if (fs === 'italic') {
+      const e = document.createElement('em');
+      e.innerHTML = node.innerHTML;
+      node.replaceWith(e);
+    }
+  });
+
+  // Remove todos os estilos restantes mas mantém tags semânticas e estrutura
+  d.querySelectorAll('[style]').forEach(n => {
+    if (!['strong','em','b','i'].includes(n.tagName.toLowerCase())) {
+      n.removeAttribute('style');
+    }
+  });
+  d.querySelectorAll('[class]').forEach(n => n.removeAttribute('class'));
+
+  // Simplifica spans sem formatação (substitui pelo conteúdo)
+  d.querySelectorAll('span').forEach(span => {
+    span.replaceWith(...span.childNodes);
+  });
+
+  // Retorna HTML limpo
+  return d.innerHTML.replace(/\u00a0/g, ' ').replace(/&nbsp;/g, ' ');
 }
+
+// Placeholder — negrito já vem via extrairHtmlRico
+function marcadoresParaHtml(txt) { return txt; }
 
 function parsearQuestoes(html) {
   const texto = htmlParaTexto(html);
+  const htmlRico = extrairHtmlRico(html);
   // Divide em blocos por cabeçalho STJ/STF (início de linha)
   const partes = texto.split(/(?=(?:^|\n)(STJ|STF)\s*[–\-—])/im).filter(b => b.trim().length > 100);
   const blocos = partes.length > 1 ? partes : [texto];
-  return blocos.map(b => parsearUmaQuestao(b.trim())).filter(Boolean);
+  return blocos.map(b => parsearUmaQuestao(b.trim(), htmlRico)).filter(Boolean);
 }
 
-function parsearUmaQuestao(texto) {
+function parsearUmaQuestao(texto, htmlRico) {
   if (!texto || texto.trim().length < 50) return null;
 
   // 1. TRIBUNAL — primeira linha deve começar com STJ ou STF

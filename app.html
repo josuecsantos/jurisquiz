@@ -2510,15 +2510,20 @@ async function salvarQuestaoAdmin() {
     codigo
   };
 
-  let error;
+  let error, data;
   if (editingQuestaoId) {
-    ({ error } = await sb.from('questoes').update(payload).eq('id', editingQuestaoId));
+    ({ error, data } = await sb.from('questoes').update(payload).eq('id', editingQuestaoId).select());
   } else {
-    ({ error } = await sb.from('questoes').insert(payload));
+    ({ error, data } = await sb.from('questoes').insert(payload).select());
   }
 
   btn.disabled = false; btn.textContent = 'Salvar questão';
-  if (error) { alert('Erro ao salvar: ' + error.message); return; }
+  console.log('[salvar] error:', error, '| data:', data);
+  if (error) { alert('Erro ao salvar: ' + error.message + '\n\nCódigo: ' + error.code); return; }
+  if (!data || data.length === 0) {
+    alert('A questão não foi salva.\n\nMotivo provável: política de segurança (RLS) bloqueou o INSERT.\n\nSolução: veja o console do navegador (F12) para detalhes.');
+    return;
+  }
   fecharModalQuestao();
   await carregarDados();
   renderAdminQuestoes();

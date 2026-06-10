@@ -2669,6 +2669,83 @@ function htmlParaTexto(html) {
 function extrairHtmlRico(html) { return ''; }
 function marcadoresParaHtml(txt) { return txt; }
 
+// Converte HTML do Word em HTML limpo preservando negrito, itálico e parágrafos
+function obterHtmlRico(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+
+  // Converte spans com font-weight bold → <strong>
+  d.querySelectorAll('span[style], b[style]').forEach(node => {
+    const fw = node.style.fontWeight;
+    const fs = node.style.fontStyle;
+    if (fw === 'bold' || fw === '700' || fw === '600') {
+      const s = document.createElement('strong');
+      s.innerHTML = node.innerHTML;
+      node.replaceWith(s);
+    } else if (fs === 'italic') {
+      const e = document.createElement('em');
+      e.innerHTML = node.innerHTML;
+      node.replaceWith(e);
+    }
+  });
+
+  // Remove estilos do Word mantendo apenas estrutura semântica
+  d.querySelectorAll('[style]').forEach(n => {
+    if (!['strong','em','b','i'].includes(n.tagName.toLowerCase())) {
+      n.removeAttribute('style');
+    }
+  });
+  d.querySelectorAll('[class],[lang],[xml\\:lang]').forEach(n => {
+    n.removeAttribute('class');
+    n.removeAttribute('lang');
+  });
+
+  // Simplifica spans sem formatação
+  d.querySelectorAll('span').forEach(span => {
+    if (!span.querySelector('strong,em,b,i')) {
+      span.replaceWith(...span.childNodes);
+    }
+  });
+
+  return d.innerHTML.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
+}
+
+// Extrai trecho de HTML entre dois marcadores de texto
+function extrairTrechoHtml(htmlRico, marcadorInicio, marcadorFim) {
+  const d = document.createElement('div');
+  d.innerHTML = htmlRico;
+  const paragrafos = Array.from(d.querySelectorAll('p, div > br + *')).length
+    ? Array.from(d.querySelectorAll('p'))
+    : Array.from(d.childNodes).filter(n => n.nodeType === 1);
+
+  let capturando = false;
+  let resultado = [];
+
+  for (const p of d.childNodes) {
+    const txt = (p.textContent || '').trim();
+
+    if (!capturando) {
+      if (txt.includes(marcadorInicio) || new RegExp(marcadorInicio, 'i').test(txt)) {
+        capturando = true;
+        // Para "Enunciado": pega o parágrafo SEGUINTE (não o título)
+        // Para "CORRETA": pega tudo a partir daqui
+        if (marcadorInicio !== 'CORRETA') continue;
+        // Para CORRETA: começa a capturar a partir do próximo parágrafo
+        resultado.push(p.outerHTML || '');
+      }
+      continue;
+    }
+
+    // Para se encontrar o marcador de fim
+    if (marcadorFim && new RegExp('\\(' + marcadorFim.replace('(','').replace(')','') + '\\)', 'i').test(txt)) break;
+    if (marcadorFim === '(A)' && /^\(A\)/.test(txt)) break;
+
+    resultado.push(p.outerHTML || p.textContent || '');
+  }
+
+  return resultado.join('\n');
+}
+
 function parsearQuestoes(html) {
   const texto = htmlParaTexto(html);
   // Divide em blocos por cabeçalho STJ/STF (início de linha)
@@ -2822,7 +2899,7 @@ function parsearUmaQuestao(texto) {
   };
 }
 
-function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta) {
+function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta, htmlRicoExp) {
   // Normaliza o texto: remove quebras múltiplas, preserva estrutura
   const texto = textoOriginal.replace(/\n{2,}/g, ' ').replace(/\n/g, ' ').trim();
 
@@ -3001,12 +3078,16 @@ async function executarImport() {
   btn.disabled = true;
   btn.textContent = 'Importando...';
 
+  // Extrai HTML rico do campo import-texto para preservar negrito/espaçamento
+  const importEl = document.getElementById('import-texto');
+  const htmlRicoTotal = importEl ? obterHtmlRico(importEl.innerHTML) : '';
+
   let ok = 0, erros = 0;
   for (const q of questoesParaImportar) {
     // Gera código usando o mesmo padrão do modal manual
     const codigo = await gerarCodigo(q.tribunal, q.informativo, q.codigoMateria);
 
-    // Monta cabeçalho como HTML para exibição no quiz (igual ao padrão das questões manuais)
+    // Monta cabeçalho como HTML para exibição no quiz
     const linhasTribunalCab = (q.cabecalho || q.tribunal || '').trim();
     const linhasInf = q.linhaDatas || (q.informativo ? 'Informativo nº ' + q.informativo : '');
     const linhasTema = (q.temaCompleto || q.tema || '').trim();
@@ -3018,7 +3099,20 @@ async function executarImport() {
       `<p><strong>Enunciado</strong></p>`,
     ].filter(Boolean).join('\n');
 
-    const enunciadoFinal = partesCabecalho + '\n<p>' + marcadoresParaHtml(q.enunciado) + '</p>';
+    // Enunciado: usa HTML rico se disponível, senão texto plano
+    const enunciadoRico = htmlRicoTotal
+      ? extrairTrechoHtml(htmlRicoTotal, 'Enunciado', '(A)')
+      : '';
+    const enunciadoFinal = partesCabecalho + '\n' +
+      (enunciadoRico || '<p>' + q.enunciado + '</p>');
+
+    // Explicação: usa HTML rico se disponível
+    const explicacaoRica = htmlRicoTotal
+      ? extrairTrechoHtml(htmlRicoTotal, 'CORRETA', null)
+      : '';
+    const explicacaoFinal = explicacaoRica
+      ? formatarExplicacao(q.explicacao.replace(/<[^>]+>/g,''), q.gabarito, q.alternativa_e || q.alternativa_a, explicacaoRica)
+      : q.explicacao;
 
     const payload = {
       tribunal: q.tribunal,
@@ -3032,7 +3126,7 @@ async function executarImport() {
       alternativa_c: q.alternativa_c,
       alternativa_d: q.alternativa_d,
       alternativa_e: q.alternativa_e,
-      explicacao: q.explicacao,
+      explicacao: explicacaoFinal || q.explicacao,
       codigo,
       dificuldade: 'médio',
     };

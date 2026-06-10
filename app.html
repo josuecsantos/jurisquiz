@@ -2552,21 +2552,54 @@ let questoesParaImportar = [];
 function limparEstilosWord() {
   const el = document.getElementById('import-texto');
   if (!el) return;
-  // Remove spans de estilo do Word, preserva <b>,<strong>,<i>,<em>
-  el.querySelectorAll('[style]').forEach(node => {
-    const tag = node.tagName.toLowerCase();
-    if (!['b','strong','i','em'].includes(tag)) {
-      // Preserva highlight (background amarelo) em spans, remove o resto
-      const bg = node.style.background || node.style.backgroundColor || '';
-      if (bg && (bg.includes('yellow') || bg.includes('fef') || bg.includes('ffff'))) {
-        node.style.cssText = 'background:yellow';
-      } else {
-        node.removeAttribute('style');
-      }
+
+  // Converte spans com font-weight bold em <strong>
+  el.querySelectorAll('span, b, p, div').forEach(node => {
+    const fw = node.style.fontWeight;
+    const fs = node.style.fontStyle;
+    if (fw === 'bold' || fw === '700' || fw === '600') {
+      const strong = document.createElement('strong');
+      strong.innerHTML = node.innerHTML;
+      node.replaceWith(strong);
+    } else if (fs === 'italic') {
+      const em = document.createElement('em');
+      em.innerHTML = node.innerHTML;
+      node.replaceWith(em);
     }
   });
-  // Remove classes do Word
+
+  // Remove estilos mas preserva estrutura de parágrafos
+  el.querySelectorAll('[style]').forEach(node => {
+    const tag = node.tagName.toLowerCase();
+    if (['strong','em','b','i'].includes(tag)) return;
+    const bg = node.style.background || node.style.backgroundColor || '';
+    if (bg && (bg.includes('yellow') || bg.includes('fef') || bg.includes('ffff'))) {
+      node.style.cssText = 'background:#fef3c7';
+    } else {
+      node.removeAttribute('style');
+    }
+  });
+
+  // Remove classes do Word mas mantém tags semânticas
   el.querySelectorAll('[class]').forEach(n => n.removeAttribute('class'));
+}
+
+// Extrai HTML limpo de um trecho de texto (preserva <strong>, <em>, <p>)
+function extrairHtmlLimpo(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  // Remove spans vazios e normaliza estrutura
+  d.querySelectorAll('span').forEach(span => {
+    if (!span.querySelector('strong,em,b,i') && 
+        !span.style.background && 
+        !span.style.backgroundColor) {
+      // Substitui span por seu conteúdo
+      span.replaceWith(...span.childNodes);
+    }
+  });
+  // Normaliza non-breaking spaces
+  d.innerHTML = d.innerHTML.replace(/ /g, ' ');
+  return d.innerHTML;
 }
 
 function mapearTema(textoTema) {
@@ -2589,7 +2622,20 @@ function mapearTema(textoTema) {
 function htmlParaTexto(html) {
   const d = document.createElement('div');
   d.innerHTML = html;
-  // Extrai texto percorrendo todos os nós — captura texto dentro de spans aninhados do Word
+
+  // Converte spans bold/italic do Word em marcadores preserváveis
+  d.querySelectorAll('span, b, strong').forEach(node => {
+    const fw = node.style && (node.style.fontWeight === 'bold' || node.style.fontWeight === '700');
+    const isB = ['b','strong'].includes(node.tagName.toLowerCase());
+    if (fw || isB) {
+      node.innerHTML = '«»' + node.innerHTML + '«/»';
+    }
+  });
+  d.querySelectorAll('i, em').forEach(node => {
+    node.innerHTML = '‹›' + node.innerHTML + '‹/›';
+  });
+
+  // Percorre nós preservando estrutura de parágrafos
   function extrairTextoNos(node) {
     let txt = '';
     for (const child of node.childNodes) {
@@ -2608,11 +2654,21 @@ function htmlParaTexto(html) {
     }
     return txt;
   }
-  return extrairTextoNos(d)
+
+  let texto = extrairTextoNos(d)
     .replace(/\u00a0/g, ' ')
     .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
+
+  return texto;
+}
+
+// Converte marcadores de negrito/itálico de volta para HTML
+function marcadoresParaHtml(texto) {
+  return texto
+    .replace(/«»(.*?)«\/»/gs, '<strong>$1</strong>')
+    .replace(/‹›(.*?)‹\/›/gs, '<em>$1</em>');
 }
 
 function parsearQuestoes(html) {
@@ -2854,11 +2910,11 @@ function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta) {
     }
   }
 
-  // ── Resumo da Tese para Memorização (amarelo) ─────────────────────────────
+  // ── Resumo da Tese para Memorização (cinza, igual às questões manuais) ──────
   const resumo = sec(String.raw`Resumo da Tese para Memoriza[çc][aã]o`);
   if (resumo) html += `
 <p><strong>Resumo da Tese para Memorização</strong></p>
-<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:6px 0 16px">
+<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">
   <p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.8">${_formatInline(resumo)}</p>
 </div>
 `;
@@ -2868,12 +2924,12 @@ function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta) {
 }
 
 
-// Formata negrito inline (**texto** → <strong>texto</strong>)
+// Formata negrito inline — converte marcadores Word e **markdown**
 function _formatInline(txt) {
-  return txt
+  return marcadoresParaHtml(txt)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n\n/g, '</p><p style="line-height:1.7">')
-    .replace(/\n/g, ' ');
+    .replace(/\n\n/g, '</p><p style="line-height:1.8">')
+    .replace(/\n/g, '<br>');
 }
 
 // ── Preview de importação ──────────────────────────────────────────────────
@@ -2964,7 +3020,7 @@ async function executarImport() {
       `<p><strong>Enunciado</strong></p>`,
     ].filter(Boolean).join('\n');
 
-    const enunciadoFinal = partesCabecalho + '\n<p>' + q.enunciado + '</p>';
+    const enunciadoFinal = partesCabecalho + '\n<p>' + marcadoresParaHtml(q.enunciado) + '</p>';
 
     const payload = {
       tribunal: q.tribunal,

@@ -2565,6 +2565,8 @@ function limparEstilosWord() {
 
 function mapearTema(textoTema) {
   if (!textoTema) return { tema: '', codigoMateria: '' };
+  // Normaliza non-breaking space do Word ( ) para espaço normal
+  textoTema = textoTema.replace(/ /g, ' ').trim();
   const principal = textoTema.split(/\s*[–\-—]\s*/)[0].trim();
   const mat = materias.find(m => {
     const mn = m.nome.toLowerCase();
@@ -2586,6 +2588,7 @@ function htmlParaTexto(html) {
     el.insertAdjacentText('beforebegin', '\n');
   });
   return (d.innerText || d.textContent || '')
+    .replace(/\u00a0/g, ' ')
     .replace(/\r\n/g,'\n').replace(/\r/g,'\n')
     .replace(/\n{3,}/g,'\n\n')
     .trim();
@@ -2911,8 +2914,8 @@ async function executarImport() {
     document.getElementById('import-texto').innerHTML = '';
     document.getElementById('btn-importar-executar').style.display = 'none';
     // Recarrega lista de questões
-    await carregarQuestoes();
-    await renderizarQuestoesAdmin();
+    try { await carregarDados(); } catch(e) {}
+    try { renderAdminQuestoes(); } catch(e) {}
   }
 }
 

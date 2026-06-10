@@ -2710,57 +2710,72 @@ function parsearUmaQuestao(texto) {
 }
 
 function formatarExplicacao(texto, gabarito, textoAltCorreta) {
+  // ── Separadores de seção: funcionam COM ou SEM \n (texto corrido do Word) ──
+  // Usa lookahead nos nomes das seções conhecidas como delimitadores
+  const SEP = '(?=Fundamento legal central|Base legal[:\s]|Destaque do informativo|Dispositivos Legais|TESES PARA|Resumo da Tese)';
+
   let html = '';
 
-  // Bloco da alternativa correta em itálico
-  // Pode aparecer como "(E) texto..." ou direto sem o marcador
-  const altPattern = new RegExp(`^\\s*\\(?${gabarito}\\)?[).\\s]([\\s\\S]*?)(?=\\n\\nFundamento|\\nFundamento|\\n\\nBase legal|\\nBase legal|$)`, 'i');
+  // Alternativa correta em itálico — remove do início do texto
+  const altPattern = new RegExp(`^\\s*\\(?${gabarito}\\)?[).\\s](.*?)(?=${SEP}|$)`, 'is');
   const altM = texto.match(altPattern);
-  if (altM) {
-    const textoAlt = altM[1].replace(/\n/g,' ').trim();
-    html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${textoAlt}</p>\n\n`;
+  if (altM && altM[1].trim()) {
+    html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${altM[1].replace(/\n/g,' ').trim()}</p>\n\n`;
     texto = texto.substring(altM[0].length).trim();
   } else if (textoAltCorreta) {
     html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${textoAltCorreta}</p>\n\n`;
+    // Remove o texto da alt correta do início se estiver lá
+    const escAlt = textoAltCorreta.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').substring(0,60);
+    texto = texto.replace(new RegExp('^[\\s\\S]{0,20}' + escAlt + '[\\s\\S]*?(?=' + SEP + ')','i'),'').trim();
   }
 
-  // ── Seção: Fundamento legal central ──────────────────────────────────────
-  const fundM = texto.match(/Fundamento legal central[:\s]*([\s\S]*?)(?=\nBase legal[:\s]|\nDestaque do informativo|\nDispositivos Legais|\nTESES PARA|\nResumo da Tese|$)/i);
-  if (fundM && fundM[1].trim()) {
-    const conteudo = fundM[1].trim();
-    // Aplica negrito nas palavras já em negrito no Word (detectadas como **texto**)
-    html += `<p><strong>Fundamento legal central:</strong></p><p style="line-height:1.7">${_formatInline(conteudo)}</p>\n\n`;
+  // ── Extrator genérico de seção ────────────────────────────────────────────
+  function extrairSecao(nomeRe, proximosRe) {
+    const re = new RegExp(nomeRe + '\\s*:?\\s*(.*?)(?=' + proximosRe + '|$)', 'is');
+    const m = texto.match(re);
+    return m ? m[1].replace(/^[:\s]+/, '').trim() : '';
   }
 
-  // ── Seção: Base legal ─────────────────────────────────────────────────────
-  const baseM = texto.match(/Base legal[:\s]*([\s\S]*?)(?=\nDestaque do informativo|\nDispositivos Legais|\nTESES PARA|\nResumo da Tese|$)/i);
-  if (baseM && baseM[1].trim()) {
-    html += `<p><strong>Base legal:</strong> ${baseM[1].trim()}</p>\n\n`;
+  const proxFund  = 'Base legal[:\s]|Destaque do informativo|Dispositivos Legais|TESES PARA|Resumo da Tese';
+  const proxBase  = 'Destaque do informativo|Dispositivos Legais|TESES PARA|Resumo da Tese';
+  const proxDest  = 'Dispositivos Legais|TESES PARA|Resumo da Tese';
+  const proxDisp  = 'TESES PARA|Resumo da Tese';
+  const proxTeses = 'Resumo da Tese';
+
+  // ── Fundamento legal central ──────────────────────────────────────────────
+  const fundo = extrairSecao('Fundamento legal central', proxFund);
+  if (fundo) {
+    html += `<p><strong>Fundamento legal central:</strong></p><p style="line-height:1.7">${_formatInline(fundo)}</p>\n\n`;
   }
 
-  // ── Seção: Destaque do informativo (fundo amarelo) ────────────────────────
-  const destM = texto.match(/Destaque do informativo[:\s]*([\s\S]*?)(?=\nDispositivos Legais|\nTESES PARA|\nResumo da Tese|$)/i);
-  if (destM && destM[1].trim()) {
+  // ── Base legal ────────────────────────────────────────────────────────────
+  const base = extrairSecao('Base legal', proxBase);
+  if (base) {
+    html += `<p><strong>Base legal:</strong> ${base}</p>\n\n`;
+  }
+
+  // ── Destaque do informativo ───────────────────────────────────────────────
+  const dest = extrairSecao('Destaque do informativo', proxDest);
+  if (dest) {
     html += `<p><strong>Destaque do informativo:</strong></p>`;
-    html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin:4px 0 16px"><p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.7">${destM[1].trim()}</p></div>\n`;
+    html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin:4px 0 16px"><p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.7">${dest}</p></div>\n`;
   }
 
-  // ── Seção: Dispositivos Legais ────────────────────────────────────────────
-  const dispM = texto.match(/Dispositivos Legais[:\s]*([\s\S]*?)(?=\nTESES PARA|\nResumo da Tese|$)/i);
-  if (dispM && dispM[1].trim()) {
-    // Cada dispositivo: "LEF, art. Xº (título):\n"texto em itálico""
-    const dispTexto = dispM[1].trim();
+  // ── Dispositivos Legais ───────────────────────────────────────────────────
+  const disp = extrairSecao('Dispositivos Legais', proxDisp);
+  if (disp) {
     html += `<p><strong>Dispositivos Legais:</strong></p>\n`;
-    // Divide por dispositivos (linha que começa com sigla legal em negrito)
-    const dispBlocos = dispTexto.split(/\n(?=[A-Z]{2,}[,\s])/);
-    for (const bloco of dispBlocos) {
+    // Divide por marcador de dispositivo: "SIGLA, art." ou "SIGLA, §"
+    const blocos = disp.split(/(?=\b[A-Z]{2,}[,\s][^a-z]{0,20}art\.|\bCPC|\bLEF|\bCTN|\bCF|\bCC\b)/g);
+    for (const bloco of blocos) {
       if (!bloco.trim()) continue;
-      const linhasDisp = bloco.trim().split('\n');
-      const titulo = linhasDisp[0].trim();
-      const corpoBlocos = linhasDisp.slice(1).join('\n').trim();
-      if (titulo && corpoBlocos) {
+      // Separa título do corpo pela vírgula+parêntese ou pelos dois pontos
+      const mTit = bloco.match(/^([^:"""]+(?:art\.[^:"""]*)?)[:\s"""]+([\s\S]*)$/i);
+      if (mTit) {
+        const titulo = mTit[1].trim();
+        const corpo  = mTit[2].replace(/["""]/g,'').trim();
         html += `<p style="margin-top:10px"><strong>${titulo}</strong></p>`;
-        html += `<p style="font-style:italic;color:#555;line-height:1.6;border-left:3px solid #ddd;padding-left:10px;margin:4px 0 8px">${corpoBlocos.replace(/^["""]/,'').replace(/["""]$/,'').trim()}</p>\n`;
+        html += `<p style="font-style:italic;color:#555;line-height:1.6;border-left:3px solid #ddd;padding-left:10px;margin:4px 0 8px">${corpo}</p>\n`;
       } else {
         html += `<p>${bloco.trim()}</p>\n`;
       }
@@ -2768,32 +2783,34 @@ function formatarExplicacao(texto, gabarito, textoAltCorreta) {
     html += '\n';
   }
 
-  // ── Seção: Teses para questão discursiva ──────────────────────────────────
-  const tesM = texto.match(/TESES PARA QUESTÃO DISCURSIVA([\s\S]*?)(?=\nResumo da Tese|$)/i);
-  if (tesM && tesM[1].trim()) {
+  // ── Teses para questão discursiva ─────────────────────────────────────────
+  const teses = extrairSecao('TESES PARA QUEST[ÃA]O DISCURSIVA', proxTeses);
+  if (teses) {
     html += `<p><strong>Teses para questão discursiva:</strong></p>\n`;
-    // Divide por "Tese N —"
-    const tesesBlocos = tesM[1].trim().split(/\n(?=Tese\s+\d)/i);
-    for (const t of tesesBlocos) {
+    // Divide por "Tese N —" ou "Tese N -"
+    const blocosTese = teses.split(/(?=Tese\s+\d+\s*[—\-])/i);
+    for (const t of blocosTese) {
       if (!t.trim()) continue;
-      const linhasTese = t.trim().split('\n');
-      const tituloTese = linhasTese[0].trim();
-      const corpoTese = linhasTese.slice(1).join(' ').trim();
-      html += `<p style="margin-top:12px"><strong>${tituloTese}</strong></p>`;
-      if (corpoTese) html += `<p style="line-height:1.7">${_formatInline(corpoTese)}</p>\n`;
+      const mTit = t.match(/^(Tese\s+\d+[^\n.]*?[—\-][^\n]*?)\s+([\s\S]*)$/i);
+      if (mTit) {
+        html += `<p style="margin-top:12px"><strong>${mTit[1].trim()}</strong></p>`;
+        html += `<p style="line-height:1.7">${_formatInline(mTit[2].trim())}</p>\n`;
+      } else {
+        html += `<p style="line-height:1.7">${_formatInline(t.trim())}</p>\n`;
+      }
     }
     html += '\n';
   }
 
-  // ── Seção: Resumo da Tese para Memorização (fundo amarelo) ───────────────
-  const resumoM = texto.match(/Resumo da Tese para Memorização[:\s]*([\s\S]*)$/i);
-  if (resumoM && resumoM[1].trim()) {
+  // ── Resumo da Tese para Memorização ──────────────────────────────────────
+  const resumo = extrairSecao('Resumo da Tese para Memoriza[çc][aã]o', '$^');
+  if (resumo) {
     html += `<p><strong>Resumo da Tese para Memorização</strong></p>`;
-    html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin:4px 0 16px"><p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.7">${_formatInline(resumoM[1].trim())}</p></div>\n`;
+    html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin:4px 0 16px"><p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.7">${_formatInline(resumo)}</p></div>\n`;
   }
 
-  // Fallback: se não achou nenhuma seção, mostra texto completo
-  if (!html.trim()) html = `<p>${texto.replace(/\n\n/g,'</p><p>').replace(/\n/g,' ')}</p>`;
+  // Fallback
+  if (!html.trim()) html = `<p>${_formatInline(texto)}</p>`;
 
   return html;
 }

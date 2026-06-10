@@ -2542,270 +2542,173 @@ async function excluirQuestao(id) {
 // ─── IMPORTADOR EM LOTE ────────────────────────────────────────────────────
 let questoesParaImportar = [];
 
-// Limpa estilos desnecessários do Word mantendo só bold/italic/underline
-function limparEstilosWord() {
-  const el = document.getElementById('import-texto');
-  // Remove spans com estilos inline do Word, mantém b/strong/i/em/u
-  el.querySelectorAll('*').forEach(node => {
-    // Remove atributos de estilo/class que o Word injeta
-    node.removeAttribute('class');
-    node.removeAttribute('lang');
-    node.removeAttribute('xml:lang');
-    // Mantém apenas font-weight e font-style no style
-    if (node.style) {
-      const fw = node.style.fontWeight;
-      const fs = node.style.fontStyle;
-      const td = node.style.textDecoration;
-      node.removeAttribute('style');
-      if (fw === 'bold' || fw === '700') node.style.fontWeight = 'bold';
-      if (fs === 'italic') node.style.fontStyle = 'italic';
-      if (td && td.includes('underline')) node.style.textDecoration = 'underline';
-    }
-  });
-}
-
-// Converte elemento HTML para texto limpo preservando formatação como HTML simples
-function htmlParaTextoLimpo(html) {
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  // Converte <p> e <br> em quebras de linha no texto
-  div.querySelectorAll('p').forEach(p => {
-    p.insertAdjacentText('afterend', '\n');
-  });
-  div.querySelectorAll('br').forEach(br => {
-    br.replaceWith('\n');
-  });
-  return div.innerText || div.textContent || '';
-}
-
-// Extrai HTML limpo de um trecho, preservando b/strong/i/em/u
-function extrairHtml(html, inicio, fim) {
-  // Encontra a posição no texto puro e extrai o HTML correspondente
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  const texto = div.innerText || div.textContent || '';
-  const idxI = texto.indexOf(inicio);
-  const idxF = fim ? texto.indexOf(fim, idxI) : texto.length;
-  if (idxI === -1) return '';
-  // Retorna o HTML da região — simplificação: retorna o HTML completo filtrado por posição de texto
-  return html; // fallback — parser abaixo usa texto + HTML separados
-}
-
-// Mapeia tema para matéria cadastrada
 function mapearTema(textoTema) {
   if (!textoTema) return { tema: '', codigoMateria: '' };
-  // Remove subtema após – ou -
   const principal = textoTema.split(/\s*[–\-—]\s*/)[0].trim();
-  // Busca nas matérias cadastradas
   const mat = materias.find(m => {
     const mn = m.nome.toLowerCase();
     const tn = principal.toLowerCase();
-    return tn.includes(mn) || mn.includes(tn) ||
-      // Fuzzy: compara primeiras palavras
-      mn.split(' ').slice(0, 2).join(' ') === tn.split(' ').slice(0, 2).join(' ');
+    return tn === mn ||
+      tn.startsWith(mn) ||
+      mn.startsWith(tn) ||
+      mn.split(' ').slice(0,2).join(' ') === tn.split(' ').slice(0,2).join(' ');
   });
-  return {
-    tema: mat?.nome || principal,
-    codigoMateria: mat?.codigo || ''
-  };
+  return { tema: mat?.nome || principal, codigoMateria: mat?.codigo || '' };
+}
+
+// Extrai texto puro de HTML preservando quebras de parágrafo
+function htmlParaTexto(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  d.querySelectorAll('p,br').forEach(el => {
+    el.insertAdjacentText('afterend', '\n');
+  });
+  return (d.innerText || d.textContent || '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+}
+
+// Extrai HTML limpo de uma seção do texto (pelo texto puro como âncora)
+function extrairSecaoHtml(htmlCompleto, textoInicio, textoFim) {
+  const div = document.createElement('div');
+  div.innerHTML = htmlCompleto;
+  const textoTotal = htmlParaTexto(htmlCompleto);
+  const idxI = textoTotal.indexOf(textoInicio);
+  if (idxI === -1) return '';
+  const idxF = textoFim ? textoTotal.indexOf(textoFim, idxI + textoInicio.length) : textoTotal.length;
+  const trecho = textoTotal.substring(idxI, idxF === -1 ? textoTotal.length : idxF);
+  return trecho.trim();
 }
 
 function parsearQuestoes(html) {
-  // Divide por início de questão (STJ ou STF no começo de um parágrafo/linha)
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  const texto = div.innerText || div.textContent || '';
-
-  // Divide em blocos pelo padrão STJ/STF no início de linha
-  const blocos = texto.split(/(?=^(?:STJ|STF)\s*[–\-—])/im).filter(b => b.trim().length > 100);
-  if (!blocos.length || (blocos.length === 1 && !blocos[0].match(/^(STJ|STF)/i))) {
-    blocos.length = 0;
-    blocos.push(texto);
-  }
-
-  const resultado = [];
-  for (const bloco of blocos) {
-    try {
-      const q = parsearUmaQuestao(bloco.trim(), html);
-      if (q) resultado.push(q);
-    } catch (e) { console.warn('Erro:', e); }
-  }
-  return resultado;
+  const texto = htmlParaTexto(html);
+  // Divide em blocos por cabeçalho STJ/STF
+  const partes = texto.split(/(?=^(?:STJ|STF)\s*[–\-—])/im).filter(b => b.trim().length > 100);
+  const blocos = partes.length ? partes : [texto];
+  return blocos.map(b => parsearUmaQuestao(b.trim(), html)).filter(Boolean);
 }
 
 function parsearUmaQuestao(texto, htmlOriginal) {
-  // Tribunal
-  const tribunalMatch = texto.match(/^(STJ|STF)/i);
-  if (!tribunalMatch) return null;
-  const tribunal = tribunalMatch[1].toUpperCase();
+  // 1. TRIBUNAL
+  const tribunalM = texto.match(/^(STJ|STF)/i);
+  if (!tribunalM) return null;
+  const tribunal = tribunalM[1].toUpperCase();
 
-  // Informativo
-  const infMatch = texto.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
-  const informativo = infMatch ? parseInt(infMatch[1]) : null;
+  // 2. INFORMATIVO
+  const infM = texto.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
+  const informativo = infM ? parseInt(infM[1]) : null;
 
-  // Tema — linha que contém "Direito" ou está após o informativo
+  // 3. TEMA — linha em negrito após o informativo (ex: "Direito Processual Civil – Execução Fiscal")
   const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
   let temaRaw = '';
   for (let i = 0; i < Math.min(8, linhas.length); i++) {
     if (/^Direito|^Processo/i.test(linhas[i])) {
-      temaRaw = linhas[i];
-      break;
-    }
-    // Linha após o informativo que não é data nem turma
-    if (linhas[i].match(/Informativo/i) && i + 1 < linhas.length) {
-      const proxima = linhas[i + 1];
-      if (proxima.match(/^Direito|^Processo|^Dir\./i)) {
-        temaRaw = proxima;
-        break;
-      }
+      temaRaw = linhas[i]; break;
     }
   }
   const { tema, codigoMateria } = mapearTema(temaRaw);
 
-  // Enunciado — entre "Enunciado" e "(A)"
-  const enunciadoMatch = texto.match(/Enunciado\s*\n([\s\S]*?)(?=\(A\))/i);
-  if (!enunciadoMatch) return null;
-  const enunciadoTexto = enunciadoMatch[1].trim();
+  // 4. ENUNCIADO — entre "Enunciado" e "(A)"
+  const enunciadoM = texto.match(/Enunciado\s*\n([\s\S]*?)(?=\(A\))/i);
+  if (!enunciadoM) return null;
+  const enunciado = enunciadoM[1].trim();
 
-  // Tenta extrair HTML do enunciado preservando formatação
-  let enunciadoHtml = enunciadoTexto; // fallback texto puro
-  try {
-    // Extrai HTML entre "Enunciado" e "(A)" do HTML original
-    const htmlDiv = document.createElement('div');
-    htmlDiv.innerHTML = htmlOriginal;
-    const fullText = htmlDiv.innerText || '';
-    const idxStart = fullText.indexOf('Enunciado');
-    const idxEnd = fullText.indexOf('(A)', idxStart);
-    if (idxStart > -1 && idxEnd > -1) {
-      // Usa texto limpo como enunciado — HTML complexo do Word causa problemas
-      enunciadoHtml = enunciadoTexto;
-    }
-  } catch(e) {}
-
-  // Alternativas — extrai preservando texto
+  // 5. ALTERNATIVAS — captura (A) até (E)
   const alts = {};
-  const altRegex = /\(([A-E])\)\s*([\s\S]*?)(?=\n\([A-E]\)|\nGABARITO|✓|$)/gi;
-  let m;
-  while ((m = altRegex.exec(texto)) !== null) {
-    alts[m[1].toUpperCase()] = m[2].trim();
+  // Regex que captura cada alternativa até a próxima ou até Gabarito
+  const altRe = /\(([A-E])\)\s*([\s\S]*?)(?=\n\([A-E]\)|\nGabarito:|\nGABARITO|$)/gi;
+  let am;
+  // Pega apenas a parte das alternativas
+  const altBloco = texto.match(/(\(A\)[\s\S]*?)(?=\nGabarito:|\nGABARITO)/i);
+  if (!altBloco) return null;
+  while ((am = altRe.exec(altBloco[1])) !== null) {
+    alts[am[1].toUpperCase()] = am[2].trim();
   }
   if (Object.keys(alts).length < 4) return null;
 
-  // Gabarito
-  const gabMatch = texto.match(/Alternativa\s+([A-E])/i);
-  const gabarito = gabMatch ? gabMatch[1].toUpperCase() : null;
+  // 6. GABARITO — "Alternativa X" após "Gabarito:"
+  const gabM = texto.match(/Gabarito:\s*\nAlternativa\s+([A-E])/i) ||
+               texto.match(/GABARITO[\s\S]*?Alternativa\s+([A-E])/i);
+  const gabarito = gabM ? gabM[1].toUpperCase() : null;
   if (!gabarito) return null;
 
-  // Explicação — tudo após "✓ Correta" ou "Alternativa X" até "Resumo da Tese"
+  // 7. EXPLICAÇÃO — tudo desde a alternativa correta em itálico até fim do texto
+  // Inclui: alt correta, fundamento, base legal, destaque, dispositivos, teses, resumo
   let explicacao = '';
-  // Tenta capturar o bloco completo incluindo destaque do informativo
-  const expMatch = texto.match(/(?:✓\s*Correta?[!\s]*\n?|GABARITO[\s\S]*?Alternativa\s+[A-E][^\n]*\n)([\s\S]*?)(?=Resumo da Tese para Memorização|TESES PARA|__________|$)/i);
-  if (expMatch) {
-    let exp = expMatch[1].trim();
-    // Remove linha que repete a alternativa correta no início
-    exp = exp.replace(/^\([A-E]\)[^\n]*\n?/, '').trim();
 
-    // Captura o "Destaque do informativo" para incluir em destaque
-    const destaqueMatch = texto.match(/Destaque do informativo\s*\n([\s\S]*?)(?=Dispositivos Legais|TESES PARA|__________|$)/i);
-    if (destaqueMatch) {
-      const destaque = destaqueMatch[1].trim();
-      // Adiciona destaque no final da explicação com marcação visual
-      exp = exp.replace(/Destaque do informativo[\s\S]*$/, '').trim();
-      exp += `\n\n<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin-top:12px"><strong style="color:#92400e;font-size:12px;text-transform:uppercase;letter-spacing:0.5px">Destaque do informativo</strong><p style="margin:6px 0 0;color:#1a1a2e;font-size:14px;line-height:1.6">${destaque}</p></div>`;
+  // Encontra posição após "✅ CORRETA" ou após "Alternativa X\n✅ CORRETA"
+  const posGab = texto.search(/✅\s*CORRETA/i);
+  if (posGab !== -1) {
+    let expTexto = texto.substring(posGab + texto.match(/✅\s*CORRETA/i)[0].length).trim();
+
+    // Formata seções especiais com HTML
+    expTexto = formatarExplicacao(expTexto, gabarito, alts[gabarito]);
+    explicacao = expTexto;
+  } else {
+    // Fallback: pega tudo após "Alternativa X"
+    const posAlt = texto.search(new RegExp(`Alternativa\\s+${gabarito}`, 'i'));
+    if (posAlt !== -1) {
+      explicacao = formatarExplicacao(texto.substring(posAlt).trim(), gabarito, alts[gabarito]);
     }
-
-    // Limita tamanho
-    if (exp.length > 4000) exp = exp.substring(0, 4000) + '...';
-    explicacao = exp;
   }
 
-  // Tipo de tese automático
+  // 8. TIPO DE TESE
   let tipo_tese = '';
   const tt = texto.toLowerCase();
-  if (tt.includes('repercussão geral') || tt.includes('repercussao geral')) tipo_tese = 'Repercussão Geral';
-  else if (tt.includes('recursos repetitivos') || tt.includes('recurso repetitivo')) tipo_tese = 'Recursos Repetitivos';
-  else if (tt.includes('incidente de assunção') || / iac /i.test(texto)) tipo_tese = 'IAC';
+  if (/repercuss[aã]o geral/i.test(texto)) tipo_tese = 'Repercussão Geral';
+  else if (/recursos?\s+repetitivos?/i.test(texto)) tipo_tese = 'Recursos Repetitivos';
+  else if (/incidente de assun[çc][aã]o|R\.\s*Repetitivos?| IAC /i.test(texto)) tipo_tese = 'IAC';
 
   return {
     tribunal, informativo, tema, codigoMateria,
-    enunciado: enunciadoHtml,
-    gabarito, explicacao, tipo_tese,
+    enunciado, gabarito, explicacao, tipo_tese,
     alternativa_a: alts['A'] || '', alternativa_b: alts['B'] || '',
     alternativa_c: alts['C'] || '', alternativa_d: alts['D'] || '',
     alternativa_e: alts['E'] || '',
   };
 }
 
-function previewImport() {
-  const el = document.getElementById('import-texto');
-  const html = el.innerHTML;
-  const texto = el.innerText || el.textContent || '';
-  if (!texto.trim()) { alert('Cole o texto das questões antes de pré-visualizar.'); return; }
+function formatarExplicacao(texto, gabarito, textoAltCorreta) {
+  let html = '';
 
-  questoesParaImportar = parsearQuestoes(html);
-  const prev = document.getElementById('import-preview');
-
-  if (!questoesParaImportar.length) {
-    prev.innerHTML = '<div class="empty">Nenhuma questão reconhecida. Verifique se o formato está correto (precisa ter "Enunciado", alternativas (A)-(E) e "Alternativa X" no gabarito).</div>';
-    document.getElementById('btn-importar-executar').style.display = 'none';
-    return;
+  // Bloco da alternativa correta em destaque (itálico no Word = texto em itálico)
+  const altM = texto.match(new RegExp(`^\\(${gabarito}\\)([\\s\\S]*?)(?=\\n\\n|\\nFundamento|\\nBase legal|$)`, 'i'));
+  if (altM) {
+    html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${altM[1].trim()}</p>\n\n`;
+    texto = texto.substring(altM[0].length).trim();
+  } else if (textoAltCorreta) {
+    html += `<p style="font-style:italic;color:var(--ink)">(${gabarito}) ${textoAltCorreta}</p>\n\n`;
   }
 
-  prev.innerHTML = `
-    <div style="font-size:14px;font-weight:600;color:var(--green);margin-bottom:12px">✓ ${questoesParaImportar.length} questão(ões) identificada(s)</div>
-    ${questoesParaImportar.map((q, i) => `
-      <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-          <span class="badge badge-ink">${q.tribunal}</span>
-          ${q.informativo ? `<span class="badge badge-gray">Inf. ${q.informativo}</span>` : ''}
-          ${q.tema ? `<span class="badge badge-gray">${q.tema}</span>` : '<span class="badge" style="background:#fde8eb;color:#9b2335">⚠ Sem matéria</span>'}
-          ${q.tipo_tese ? `<span class="badge badge-gold">${q.tipo_tese}</span>` : ''}
-          <span class="badge" style="background:var(--green-light);color:var(--green)">Gab: ${q.gabarito}</span>
-          ${q.codigoMateria && q.informativo ? `<span class="badge" style="background:var(--ink);color:var(--gold);font-family:monospace">${q.tribunal}-${q.informativo}-${q.codigoMateria}-???</span>` : ''}
-        </div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.5">${q.enunciado.substring(0, 180)}...</div>
-      </div>`).join('')}`;
+  // Processa seções com títulos em negrito
+  const secoes = [
+    { re: /Fundamento legal central:([\s\S]*?)(?=\nBase legal:|\nDestaque do informativo:|\nDispositivos Legais:|\nTESES PARA|\nResumo da Tese|$)/i, titulo: 'Fundamento legal central' },
+    { re: /Base legal:([\s\S]*?)(?=\nDestaque do informativo:|\nDispositivos Legais:|\nTESES PARA|\nResumo da Tese|$)/i, titulo: 'Base legal' },
+    { re: /Destaque do informativo:([\s\S]*?)(?=\nDispositivos Legais:|\nTESES PARA|\nResumo da Tese|$)/i, titulo: null, destaque: true },
+    { re: /Dispositivos Legais:([\s\S]*?)(?=\nTESES PARA|\nResumo da Tese|$)/i, titulo: 'Dispositivos Legais' },
+    { re: /TESES PARA QUESTÃO DISCURSIVA([\s\S]*?)(?=\nResumo da Tese|$)/i, titulo: 'Teses para questão discursiva' },
+    { re: /Resumo da Tese para Memorização([\s\S]*)$/i, titulo: null, resumo: true },
+  ];
 
-  document.getElementById('btn-importar-executar').style.display = '';
-}
+  for (const s of secoes) {
+    const m = texto.match(s.re);
+    if (!m) continue;
+    const conteudo = m[1].trim();
+    if (!conteudo) continue;
 
-async function executarImport() {
-  if (!questoesParaImportar.length) return;
-  const btn = document.getElementById('btn-importar-executar');
-  btn.disabled = true;
-  let sucesso = 0, erros = 0;
-
-  for (let i = 0; i < questoesParaImportar.length; i++) {
-    const q = questoesParaImportar[i];
-    btn.textContent = `Importando ${i + 1} / ${questoesParaImportar.length}...`;
-    await carregarDados();
-    let codigo = null;
-    if (q.tribunal && q.informativo && q.codigoMateria) {
-      codigo = await gerarCodigo(q.tribunal, q.informativo, q.codigoMateria);
+    if (s.destaque) {
+      html += `<p><strong>Destaque do informativo:</strong></p>`;
+      html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin:8px 0 16px"><p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.6">${conteudo}</p></div>\n`;
+    } else if (s.resumo) {
+      html += `<p><strong>Resumo da Tese para Memorização</strong></p>`;
+      html += `<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 14px;border-radius:6px;margin:8px 0 16px"><p style="margin:0;color:#1a1a2e;font-size:14px;line-height:1.6">${conteudo}</p></div>\n`;
+    } else {
+      html += `<p><strong>${s.titulo}:</strong> ${conteudo}</p>\n\n`;
     }
-    const { error } = await sb.from('questoes').insert({
-      tribunal: q.tribunal, informativo: q.informativo, tema: q.tema,
-      enunciado: q.enunciado,
-      alternativa_a: q.alternativa_a, alternativa_b: q.alternativa_b,
-      alternativa_c: q.alternativa_c, alternativa_d: q.alternativa_d,
-      alternativa_e: q.alternativa_e,
-      gabarito: q.gabarito, explicacao: q.explicacao,
-      tipo_tese: q.tipo_tese || null,
-      dificuldade: 'médio', codigo
-    });
-    if (error) { erros++; console.error(error); } else sucesso++;
   }
 
-  await carregarDados();
-  btn.disabled = false; btn.textContent = '⬆ Importar todas';
-  questoesParaImportar = [];
-  document.getElementById('import-texto').innerHTML = '';
-  document.getElementById('import-preview').innerHTML = `
-    <div style="background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--radius);padding:16px;text-align:center">
-      <div style="font-size:16px;font-weight:700;color:var(--green);margin-bottom:4px">✓ Importação concluída!</div>
-      <div style="font-size:13px;color:var(--green)">${sucesso} questão(ões) importada(s)${erros ? ` · ${erros} com erro` : ''}</div>
-    </div>`;
-  switchAdminTab('questoes');
+  // Fallback: se não achou seções, usa o texto completo
+  if (!html.trim()) html = `<p>${texto}</p>`;
+
+  return html;
 }
 
 // ─── BUSCA DE QUESTÕES ─────────────────────────────────────────────────────
@@ -2888,7 +2791,6 @@ document.addEventListener('click', e => {
   }
 });
 
-// ─── BUSCA DE QUESTÕES ─────────────────────────────────────────────────────
 async function carregarAnotacao(questaoId) {
   const userId = await getUserId();
   const res = await api(`anotacoes?usuario_id=eq.${userId}&questao_id=eq.${questaoId}&select=texto`);

@@ -2745,6 +2745,7 @@ function extrairExplicacaoHtml(htmlRico, gabarito) {
     if (!txt) { html += '<p style="margin:8px 0"></p>\n'; continue; }
 
     // ── Seções com marcação especial ──────────────────────────────────────
+    if (typeof window.__debugExp !== 'undefined') window.__debugExp.push(txt.substring(0,60));
     if (/^Destaque do informativo/i.test(txt)) {
       fecharDiv();
       html += `<p><strong>Destaque do informativo:</strong></p>\n`;

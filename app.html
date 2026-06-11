@@ -2453,17 +2453,31 @@ async function atualizarCodigoPreview() {
     return;
   }
 
-  // Busca próximo número sequencial para este grupo
   const prefixo = `${tribunal}-${informativo}-${codigoMateria}-`;
-  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo));
-  const proximo = String(existentes.length + 1).padStart(3, '0');
+  // Se o código atual já usa esse prefixo, mostra o mesmo código
+  const questaoExistente = editingQuestaoId ? questoes.find(q => q.id === editingQuestaoId) : null;
+  if (questaoExistente?.codigo?.startsWith(prefixo)) {
+    preview.textContent = questaoExistente.codigo;
+    return;
+  }
+  // Caso contrário, mostra o próximo sequencial
+  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo) && q.id !== editingQuestaoId);
+  const nums = existentes.map(q => {
+    const m = q.codigo.match(/-(\d+)$/);
+    return m ? parseInt(m[1], 10) : 0;
+  });
+  const proximo = String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
   preview.textContent = `${prefixo}${proximo}`;
 }
 
-async function gerarCodigo(tribunal, informativo, codigoMateria) {
+async function gerarCodigo(tribunal, informativo, codigoMateria, excluirId) {
   const prefixo = `${tribunal}-${informativo}-${codigoMateria}-`;
-  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo));
-  const proximo = String(existentes.length + 1).padStart(3, '0');
+  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo) && q.id !== excluirId);
+  const nums = existentes.map(q => {
+    const m = q.codigo.match(/-(\d+)$/);
+    return m ? parseInt(m[1], 10) : 0;
+  });
+  const proximo = String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
   return `${prefixo}${proximo}`;
 }
 
@@ -2486,11 +2500,20 @@ async function salvarQuestaoAdmin() {
 
   btn.disabled = true; btn.textContent = 'Salvando...';
 
-  // Gera código: mantém o existente, ou gera novo se não tiver
+  // Gera código: regenera se matéria mudou ou se ainda não existe
   const questaoExistente = editingQuestaoId ? questoes.find(q => q.id === editingQuestaoId) : null;
   let codigo = questaoExistente?.codigo || null;
-  if (!codigo && tribunal && informativo && codigoMateria) {
-    codigo = await gerarCodigo(tribunal, informativo, codigoMateria);
+
+  if (tribunal && informativo && codigoMateria) {
+    // Verifica se o código atual já contém o código da matéria selecionada
+    const prefixoEsperado = `${tribunal}-${informativo}-${codigoMateria}-`;
+    if (!codigo || !codigo.startsWith(prefixoEsperado)) {
+      // Matéria mudou (ou código inexistente/com "--"): regenera
+      codigo = await gerarCodigo(tribunal, informativo, codigoMateria, editingQuestaoId);
+    }
+  } else if (!codigo && tribunal && informativo) {
+    // Sem matéria selecionada e sem código: gera com campo vazio
+    codigo = await gerarCodigo(tribunal, informativo, '', editingQuestaoId);
   }
 
   const payload = {

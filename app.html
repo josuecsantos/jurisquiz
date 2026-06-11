@@ -3080,7 +3080,7 @@ function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta, htmlRicoEx
   // ── Teses para questão discursiva ─────────────────────────────────────────
   // Extrai a seção de teses preservando quebras de linha (título/corpo separados)
   const tesesComQuebras = (function() {
-    const m = textoComQuebras.match(/TESES PARA QUEST[ÃA]O DISCURSIVA[:\s]*([\s\S]*?)(?=\nResumo da Tese|Resumo da Tese para Memoriza|$)/i);
+    const m = textoComQuebras.match(/TESES PARA QUEST[ÃA]O DISCURSIVA\s*([\s\S]*?)(?=Resumo da Tese para Memoriza|$)/i);
     return m ? m[1].trim() : '';
   })();
 

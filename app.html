@@ -2557,56 +2557,8 @@ function limparEstilosWord() {
 
 // Limpa HTML do Word preservando estrutura, negrito e itálico
 function limparHtmlWord(html) {
-  const d = document.createElement('div');
-  d.innerHTML = html;
-
-  // 1. Converte spans com font-weight → <strong>, font-style italic → <em>
-  //    Processa de dentro para fora (childNodes primeiro)
-  function processarNegrito(root) {
-    root.querySelectorAll('span[style], b[style]').forEach(node => {
-      const fw = node.style.fontWeight;
-      const fs = node.style.fontStyle;
-      if (fw === 'bold' || fw === '700' || fw === '600') {
-        const s = document.createElement('strong');
-        s.innerHTML = node.innerHTML;
-        node.replaceWith(s);
-      } else if (fs === 'italic') {
-        const e = document.createElement('em');
-        e.innerHTML = node.innerHTML;
-        node.replaceWith(e);
-      }
-    });
-  }
-  processarNegrito(d);
-
-  // 2. Remove todos os atributos de estilo/classe exceto de tags semânticas
-  d.querySelectorAll('*').forEach(node => {
-    const tag = node.tagName.toLowerCase();
-    if (['strong','em','b','i'].includes(tag)) return;
-    node.removeAttribute('style');
-    node.removeAttribute('class');
-    node.removeAttribute('lang');
-    node.removeAttribute('dir');
-    node.removeAttribute('xml:lang');
-  });
-
-  // 3. Substitui spans por seu conteúdo (inline, sem quebra)
-  d.querySelectorAll('span').forEach(span => {
-    span.replaceWith(...span.childNodes);
-  });
-
-  // 4. Remove tags desnecessárias do Word (w:, o:, etc via comments)
-  // Remove comentários HTML do Word
-  const html2 = d.innerHTML
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/ /g, ' ')
-    // Remove atributos residuais do Word
-    .replace(/\s*(xmlns|mso-|panose-|font-family|margin|line-height|text-indent|text-align|tab-stops)[^"']*?["'][^"']*?["']/gi, '')
-    .replace(/\s+>/g, '>')
-    .replace(/<p><\/p>/g, '<p>\u00a0</p>'); // preserva parágrafos vazios (espaçamento)
-
-  return html2;
+  return obterHtmlRico(html)
+    .replace(/<p>\s*<\/p>/g, '<p>\u00a0</p>'); // preserva paragrafos vazios (espacamento)
 }
 
 // Extrai HTML limpo de um trecho de texto (preserva <strong>, <em>, <p>)
@@ -2783,45 +2735,69 @@ function extrairExplicacaoHtml(htmlRico, gabarito) {
   return html.trim();
 }
 
-// Converte HTML do Word em HTML limpo preservando negrito, itálico e parágrafos
+// Converte HTML do Word em HTML limpo preservando negrito, itálico, sublinhado e parágrafos
 function obterHtmlRico(html) {
   const d = document.createElement('div');
-  d.innerHTML = html;
+  d.innerHTML = (html || '').replace(/<!--[\s\S]*?-->/g, '');
 
-  // Converte spans com font-weight bold → <strong>
-  d.querySelectorAll('span[style], b[style]').forEach(node => {
-    const fw = node.style.fontWeight;
-    const fs = node.style.fontStyle;
-    if (fw === 'bold' || fw === '700' || fw === '600') {
-      const s = document.createElement('strong');
-      s.innerHTML = node.innerHTML;
-      node.replaceWith(s);
-    } else if (fs === 'italic') {
-      const e = document.createElement('em');
-      e.innerHTML = node.innerHTML;
-      node.replaceWith(e);
-    }
+  // Remove tags próprias do Word (o:p etc.) sem perder o conteúdo
+  d.querySelectorAll('*').forEach(n => {
+    if (n.tagName && n.tagName.includes(':')) n.replaceWith(...n.childNodes);
   });
 
-  // Remove estilos do Word mantendo apenas estrutura semântica
-  d.querySelectorAll('[style]').forEach(n => {
-    if (!['strong','em','b','i'].includes(n.tagName.toLowerCase())) {
-      n.removeAttribute('style');
-    }
+  // 1. Converte spans com estilo em tags semânticas (negrito, itálico, sublinhado),
+  //    inclusive combinações (negrito+itálico) e spans aninhados.
+  //    Move os nós-filhos reais (não copia innerHTML) para não perder formatação interna.
+  Array.from(d.querySelectorAll('span[style]')).reverse().forEach(node => {
+    const st = node.style;
+    const bold = st.fontWeight === 'bold' || parseInt(st.fontWeight, 10) >= 600;
+    const italic = st.fontStyle === 'italic';
+    const underline = (st.textDecoration || '').includes('underline');
+    if (!bold && !italic && !underline) return;
+    let externo = null, interno = null;
+    const camadas = [];
+    if (bold) camadas.push('strong');
+    if (italic) camadas.push('em');
+    if (underline) camadas.push('u');
+    camadas.forEach(tag => {
+      const el = document.createElement(tag);
+      if (!externo) { externo = el; interno = el; }
+      else { interno.appendChild(el); interno = el; }
+    });
+    while (node.firstChild) interno.appendChild(node.firstChild);
+    node.replaceWith(externo);
   });
-  d.querySelectorAll('[class],[lang],[xml\\:lang]').forEach(n => {
+
+  // 2. Remove atributos de estilo/classe mantendo apenas a estrutura semântica
+  d.querySelectorAll('*').forEach(n => {
+    n.removeAttribute('style');
     n.removeAttribute('class');
     n.removeAttribute('lang');
+    n.removeAttribute('dir');
+    n.removeAttribute('align');
   });
 
-  // Simplifica spans sem formatação
+  // 3. Desembrulha spans restantes (sem formatação)
   d.querySelectorAll('span').forEach(span => {
-    if (!span.querySelector('strong,em,b,i')) {
-      span.replaceWith(...span.childNodes);
-    }
+    span.replaceWith(...span.childNodes);
   });
 
-  return d.innerHTML.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
+  // 4. Normaliza non-breaking spaces apenas em nós de texto com conteúdo real
+  //    (preserva <p>&nbsp;</p> usados como espaçamento)
+  const walker = document.createTreeWalker(d, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const t = walker.currentNode;
+    if (t.textContent.replace(/\u00a0/g, ' ').trim()) {
+      t.textContent = t.textContent.replace(/\u00a0/g, ' ');
+    }
+  }
+
+  // 5. Remove tags de formatação vazias geradas pelo Word
+  d.querySelectorAll('strong, em, b, i, u').forEach(n => {
+    if (!n.textContent.trim() && !n.querySelector('img,br')) n.remove();
+  });
+
+  return d.innerHTML;
 }
 
 // Extrai trecho de HTML entre dois marcadores de texto
@@ -2858,11 +2834,199 @@ function extrairTrechoHtml(htmlRico, marcadorInicio, marcadorFim) {
 }
 
 function parsearQuestoes(html) {
-  const texto = htmlParaTexto(html);
-  // Divide em blocos por cabeçalho STJ/STF (início de linha)
-  const partes = texto.split(/(?=(?:^|\n)(STJ|STF)(?:\s*[–\-—]|\s*\n))/im).filter(b => b.trim().length > 100);
-  const blocos = partes.length > 1 ? partes : [texto];
-  return blocos.map(b => parsearUmaQuestao(b.trim())).filter(Boolean);
+  // 1. Normaliza o HTML do Word (negrito/itálico → strong/em, remove estilos)
+  const d = document.createElement('div');
+  d.innerHTML = obterHtmlRico(html);
+  const nos = Array.from(d.children);
+
+  // Sem estrutura de parágrafos (colou texto puro): usa o parser de texto antigo
+  if (nos.length < 3) {
+    const texto = htmlParaTexto(html);
+    const partes = texto.split(/(?=(?:^|\n)(STJ|STF)(?:\s*[–\-—]|\s*\n))/im).filter(b => b.trim().length > 100);
+    const blocos = partes.length > 1 ? partes : [texto];
+    return blocos.map(b => parsearUmaQuestao(b.trim())).filter(Boolean);
+  }
+
+  // 2. Divide em blocos de questão: cada parágrafo "STJ – ..." / "STF – ..." inicia uma questão
+  const blocos = [];
+  let atual = null;
+  for (const no of nos) {
+    const txt = (no.textContent || '').replace(/\u00a0/g, ' ').trim();
+    if (/^(STJ|STF)\s*([–\-—]|$)/i.test(txt)) {
+      if (atual && atual.length) blocos.push(atual);
+      atual = [no];
+    } else {
+      if (!atual) atual = [];
+      atual.push(no);
+    }
+  }
+  if (atual && atual.length) blocos.push(atual);
+
+  return blocos.map(parsearQuestaoRica).filter(Boolean);
+}
+
+// Texto normalizado de um nó
+function _txtNo(no) {
+  return (no.textContent || '').replace(/\u00a0/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+// Remove o prefixo "(A)" do início de um parágrafo de alternativa,
+// preservando toda a formatação interna (o prefixo pode estar dividido
+// em vários runs de negrito do Word)
+function removerPrefixoAlternativa(no) {
+  const clone = no.cloneNode(true);
+  const m = clone.textContent.replace(/\u00a0/g, ' ').match(/^\s*\(\s*[A-E]\s*\)\s*/i);
+  if (!m) return clone.innerHTML.trim();
+  let restante = m[0].length;
+  const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+  const textos = [];
+  while (walker.nextNode()) textos.push(walker.currentNode);
+  for (const t of textos) {
+    if (restante <= 0) break;
+    const len = t.textContent.length;
+    if (len <= restante) { restante -= len; t.textContent = ''; }
+    else { t.textContent = t.textContent.slice(restante); restante = 0; }
+  }
+  clone.querySelectorAll('strong,em,b,i,u').forEach(n => {
+    if (!n.textContent.trim()) n.remove();
+  });
+  return clone.innerHTML.trim();
+}
+
+// Monta o HTML da explicação preservando os parágrafos originais do Word,
+// adicionando apenas as caixas de destaque (amarela) e de resumo (verde),
+// no mesmo padrão das questões cadastradas manualmente
+function montarExplicacaoRica(nosExp) {
+  const SECAO = /^(Fundamento legal|Base legal|Destaque do informativo|Dispositivos Legais|TESES PARA QUEST|Resumo da Tese|Tese\s+\d+\s*[—–-])/i;
+  let html = '';
+  let box = null; // null | 'amarelo' | 'verde'
+  const fecharBox = () => { if (box) { html += '</div>\n'; box = null; } };
+
+  for (const no of nosExp) {
+    if (no.nodeType !== 1) continue;
+    const txt = _txtNo(no);
+
+    // Parágrafo vazio = espaçamento (ignora dentro das caixas)
+    if (!txt) {
+      if (!box) html += '<p>\u00a0</p>\n';
+      continue;
+    }
+
+    if (/^Destaque do informativo/i.test(txt)) {
+      fecharBox();
+      html += no.outerHTML + '\n';
+      html += '<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">\n';
+      box = 'amarelo';
+      continue;
+    }
+    if (/^Resumo da Tese para Memoriza/i.test(txt)) {
+      fecharBox();
+      html += no.outerHTML + '\n';
+      html += '<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">\n';
+      box = 'verde';
+      continue;
+    }
+    // Nova seção encerra a caixa aberta
+    if (box && SECAO.test(txt)) fecharBox();
+
+    html += no.outerHTML + '\n';
+  }
+  fecharBox();
+  return html.trim();
+}
+
+// Parser principal: extrai os campos preservando o HTML original do Word
+function parsearQuestaoRica(nos) {
+  const textoTotal = nos.map(_txtNo).join('\n');
+  if (textoTotal.trim().length < 50) return null;
+
+  // 1. TRIBUNAL
+  const tribunalM = textoTotal.match(/^(STJ|STF)/im);
+  if (!tribunalM) return null;
+  const tribunal = tribunalM[1].toUpperCase();
+
+  // 2. INFORMATIVO
+  const infM = textoTotal.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
+  const informativo = infM ? parseInt(infM[1]) : null;
+
+  // 3. TEMA — primeira linha "Direito ..." / "Processo ..." (para mapear a matéria)
+  let temaRaw = '';
+  for (const no of nos.slice(0, 8)) {
+    const t = _txtNo(no);
+    if (/^(Direito|Processo)\b/i.test(t) && t.length > 4) { temaRaw = t; break; }
+  }
+  const { tema, codigoMateria } = mapearTema(temaRaw);
+
+  // 4. ÍNDICES ESTRUTURAIS
+  let idxEnunciado = -1, idxPrimAlt = -1, idxGabarito = -1, idxCorreta = -1;
+  nos.forEach((no, i) => {
+    const t = _txtNo(no);
+    if (idxEnunciado === -1 && /^Enunciado\s*:?\s*$/i.test(t)) idxEnunciado = i;
+    if (idxPrimAlt === -1 && /^\(\s*A\s*\)/.test(t)) idxPrimAlt = i;
+    if (idxGabarito === -1 && idxPrimAlt !== -1 && i > idxPrimAlt && /^Gabarito\b/i.test(t)) idxGabarito = i;
+    if (idxCorreta === -1 && t.includes('✅')) idxCorreta = i;
+  });
+  if (idxPrimAlt === -1) return null;
+
+  // 5. CABEÇALHO + ENUNCIADO — HTML fiel ao Word (inclui o título "Enunciado")
+  const fimCab = idxEnunciado >= 0 ? idxEnunciado + 1 : Math.min(3, idxPrimAlt);
+  const cabecalhoNos = nos.slice(0, fimCab);
+  const enunNos = nos.slice(fimCab, idxPrimAlt);
+  const enunciadoHtml = cabecalhoNos.concat(enunNos).map(n => n.outerHTML).join('\n');
+  const enunciadoTexto = enunNos.map(_txtNo).filter(Boolean).join('\n');
+  if (!enunciadoTexto) return null;
+
+  // 6. ALTERNATIVAS — HTML interno preservado, sem o prefixo "(X)"
+  const fimAlts = idxGabarito !== -1 ? idxGabarito : (idxCorreta !== -1 ? idxCorreta : nos.length);
+  const alts = {};
+  let letraAtual = null;
+  for (let i = idxPrimAlt; i < fimAlts; i++) {
+    const no = nos[i];
+    const t = _txtNo(no);
+    const m = t.match(/^\(\s*([A-E])\s*\)/i);
+    if (m) {
+      letraAtual = m[1].toUpperCase();
+      alts[letraAtual] = removerPrefixoAlternativa(no);
+    } else if (letraAtual && t) {
+      alts[letraAtual] += '<br>' + no.innerHTML.trim();
+    }
+  }
+  if (Object.keys(alts).length < 4) return null;
+
+  // 7. GABARITO
+  const textoGab = nos.slice(fimAlts, idxCorreta !== -1 ? idxCorreta + 1 : nos.length)
+    .map(_txtNo).join('\n');
+  const gabM = textoGab.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i) ||
+               textoGab.match(/\bAlternativa\s+([A-E])\b/i) ||
+               textoTotal.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i);
+  const gabarito = gabM ? gabM[1].toUpperCase() : null;
+  if (!gabarito) return null;
+
+  // 8. EXPLICAÇÃO — todos os parágrafos após "✅ CORRETA", com formatação original
+  let explicacao = '';
+  if (idxCorreta !== -1) {
+    explicacao = montarExplicacaoRica(nos.slice(idxCorreta + 1));
+  } else if (idxGabarito !== -1) {
+    // Sem ✅: pega tudo após "Gabarito", pulando a linha "Alternativa X"
+    const restantes = nos.slice(idxGabarito + 1).filter(no => !/^Alternativa\s+[A-E]\s*$/i.test(_txtNo(no)));
+    explicacao = montarExplicacaoRica(restantes);
+  }
+
+  // 9. TIPO DE TESE
+  let tipo_tese = '';
+  if (/repercuss[aã]o\s+geral/i.test(textoTotal)) tipo_tese = 'Repercussão Geral';
+  else if (/recursos?\s+repetitivos?/i.test(textoTotal)) tipo_tese = 'Recursos Repetitivos';
+  else if (/\bIAC\b|incidente de assun[çc][aã]o/i.test(textoTotal)) tipo_tese = 'IAC';
+
+  return {
+    tribunal, informativo, tema, codigoMateria,
+    enunciado: enunciadoTexto,   // texto puro (usado no preview)
+    enunciadoHtml,               // HTML fiel ao Word (salvo no banco)
+    gabarito, explicacao, tipo_tese,
+    alternativa_a: alts['A'] || '', alternativa_b: alts['B'] || '',
+    alternativa_c: alts['C'] || '', alternativa_d: alts['D'] || '',
+    alternativa_e: alts['E'] || '',
+  };
 }
 
 function parsearUmaQuestao(texto) {
@@ -3080,7 +3244,7 @@ function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta, htmlRicoEx
   // ── Teses para questão discursiva ─────────────────────────────────────────
   // Extrai a seção de teses preservando quebras de linha (título/corpo separados)
   const tesesComQuebras = (function() {
-    const m = textoComQuebras.match(/TESES PARA QUEST[\\u00c3A][\\s\\S]{0,5}DISCURSIVA?\\s*([\\s\\S]*?)(?=Resumo da Tese|$)/i) || textoComQuebras.match(/TESES PARA[\\s\\S]{0,20}?\\n([\\s\\S]*?)(?=Resumo da Tese|$)/i);
+    const m = textoComQuebras.match(/TESES PARA QUEST[ÃA]O DISCURSIVA\s*([\s\S]*?)(?=Resumo da Tese para Memoriza|$)/i);
     return m ? m[1].trim() : '';
   })();
 
@@ -3214,27 +3378,30 @@ async function executarImport() {
     // Gera código usando o mesmo padrão do modal manual
     const codigo = await gerarCodigo(q.tribunal, q.informativo, q.codigoMateria);
 
-    // Monta cabeçalho como HTML para exibição no quiz
-    const linhasTribunalCab = (q.cabecalho || q.tribunal || '').trim();
-    const linhasInf = q.linhaDatas || (q.informativo ? 'Informativo nº ' + q.informativo : '');
-    const linhasTema = (q.temaCompleto || q.tema || '').trim();
+    // Enunciado: HTML fiel ao Word (já inclui cabeçalho e título "Enunciado")
+    let enunciadoFinal;
+    if (q.enunciadoHtml) {
+      enunciadoFinal = q.enunciadoHtml;
+    } else {
+      // Fallback (texto puro colado sem formatação): monta cabeçalho manualmente
+      const linhasTribunalCab = (q.cabecalho || q.tribunal || '').trim();
+      const linhasInf = q.linhaDatas || (q.informativo ? 'Informativo nº ' + q.informativo : '');
+      const linhasTema = (q.temaCompleto || q.tema || '').trim();
+      const partesCabecalho = [
+        linhasTribunalCab ? `<p><strong>${linhasTribunalCab}</strong></p>` : '',
+        linhasInf         ? `<p>${linhasInf}</p>` : '',
+        linhasTema        ? `<p><strong>${linhasTema}</strong></p>` : '',
+        `<p>&nbsp;</p>`,
+        `<p><strong>Enunciado</strong></p>`,
+      ].filter(Boolean).join('\n');
+      const enunciadoRico = htmlRicoTotal
+        ? extrairTrechoHtml(htmlRicoTotal, 'Enunciado', '(A)')
+        : '';
+      enunciadoFinal = partesCabecalho + '\n' +
+        (enunciadoRico || '<p>' + q.enunciado + '</p>');
+    }
 
-    const partesCabecalho = [
-      linhasTribunalCab ? `<p><strong>${linhasTribunalCab}</strong></p>` : '',
-      linhasInf         ? `<p>${linhasInf}</p>` : '',
-      linhasTema        ? `<p><strong>${linhasTema}</strong></p>` : '',
-      `<p>&nbsp;</p>`,
-      `<p><strong>Enunciado</strong></p>`,
-    ].filter(Boolean).join('\n');
-
-    // Enunciado: usa HTML rico se disponível, senão texto plano
-    const enunciadoRico = htmlRicoTotal
-      ? extrairTrechoHtml(htmlRicoTotal, 'Enunciado', '(A)')
-      : '';
-    const enunciadoFinal = partesCabecalho + '\n' +
-      (enunciadoRico || '<p>' + q.enunciado + '</p>');
-
-    // Explicação: usa formatarExplicacao (já gera seções e cores corretamente)
+    // Explicação: HTML com a formatação original do Word
     const explicacaoFinal = q.explicacao;
 
     const payload = {

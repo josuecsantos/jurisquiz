@@ -3013,6 +3013,8 @@ function parsearUmaQuestao(texto) {
 function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta, htmlRicoExp) {
   // Normaliza o texto: remove quebras múltiplas, preserva estrutura
   const texto = textoOriginal.replace(/\n{2,}/g, ' ').replace(/\n/g, ' ').trim();
+  // Versão com quebras preservadas (para separar título/corpo das teses)
+  const textoComQuebras = textoOriginal.replace(/\n{2,}/g, '\n').trim();
 
   // Todas as regex usam lookahead nos títulos conhecidos como delimitadores
   const PROX = String.raw`(?=Fundamento legal central|Base legal[:\s]|Destaque do informativo|Dispositivos Legais|TESES PARA QUEST|Resumo da Tese|$)`;
@@ -3076,21 +3078,35 @@ function formatarExplicacao(textoOriginal, gabarito, textoAltCorreta, htmlRicoEx
   }
 
   // ── Teses para questão discursiva ─────────────────────────────────────────
-  const teses = sec(String.raw`TESES PARA QUEST[ÃA]O DISCURSIVA`);
-  if (teses) {
+  // Extrai a seção de teses preservando quebras de linha (título/corpo separados)
+  const tesesComQuebras = (function() {
+    const m = textoComQuebras.match(/TESES PARA QUEST[ÃA]O DISCURSIVA[:\s]*([\s\S]*?)(?=\nResumo da Tese|Resumo da Tese para Memoriza|$)/i);
+    return m ? m[1].trim() : '';
+  })();
+
+  if (tesesComQuebras) {
     html += `\n<p><strong>Teses para questão discursiva:</strong></p>\n`;
-    // Divide em cada "Tese N —" mantendo o título junto ao corpo
-    const blocosTese = teses.split(/(?=Tese\s+\d+\s*[—–-])/i).filter(t => t.trim());
-    for (const t of blocosTese) {
-      // Título = "Tese N — texto do título" até o primeiro ponto final ou dois pontos
-      const mT = t.match(/^(Tese\s+\d+\s*[—–-][^.:\n]{5,80}?)\s{2,}([\s\S]*)$/i)
-               || t.match(/^(Tese\s+\d+\s*[—–-][^\n]+)\n([\s\S]*)$/i)
-               || t.match(/^(Tese\s+\d+\s*[—–-].*?:\s*)(.*?)$/is);
-      if (mT) {
-        html += `<p style="margin-top:16px;margin-bottom:4px"><strong>${mT[1].trim()}</strong></p>`;
-        html += `<p style="line-height:1.8">${_formatInline(mT[2].trim())}</p>\n`;
+    // Divide o texto em linhas; cada "Tese N —" é um título, a linha seguinte é o corpo
+    const linhasTese = tesesComQuebras.split('\n').map(l => l.trim()).filter(l => l);
+    let i = 0;
+    while (i < linhasTese.length) {
+      const linha = linhasTese[i];
+      if (/^Tese\s+\d+\s*[—–-]/i.test(linha)) {
+        // É um título de tese
+        html += `<p style="margin-top:16px;margin-bottom:4px"><strong>${linha}</strong></p>`;
+        // Junta as linhas seguintes (corpo) até a próxima "Tese N" ou fim
+        let corpo = [];
+        i++;
+        while (i < linhasTese.length && !/^Tese\s+\d+\s*[—–-]/i.test(linhasTese[i])) {
+          corpo.push(linhasTese[i]);
+          i++;
+        }
+        if (corpo.length) {
+          html += `<p style="line-height:1.8">${_formatInline(corpo.join(' '))}</p>\n`;
+        }
       } else {
-        html += `<p style="line-height:1.8">${_formatInline(t.trim())}</p>\n`;
+        html += `<p style="line-height:1.8">${_formatInline(linha)}</p>\n`;
+        i++;
       }
     }
   }

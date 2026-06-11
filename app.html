@@ -2378,7 +2378,7 @@ function renderAdminQuestoes() {
   el.innerHTML = lista.map(q => `
     <div class="questao-admin-card">
       <div class="questao-admin-top">
-        <div class="questao-admin-text">${escapeHtml(q.enunciado)}</div>
+        <div class="questao-admin-text">${escapeHtml((q.enunciado || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim())}</div>
         <span class="badge badge-ink">${q.tribunal || '—'}</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
@@ -2579,20 +2579,39 @@ function extrairHtmlLimpo(html) {
   return d.innerHTML;
 }
 
+// Normaliza nome de tema/matéria para comparação:
+// minúsculas, sem acentos, "processual" ≈ "processo", ignora o prefixo "Direito"
+function _normTema(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\bprocessual\b/g, 'processo')
+    .replace(/^direito\s+/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function mapearTema(textoTema) {
   if (!textoTema) return { tema: '', codigoMateria: '' };
-  // Normaliza non-breaking space do Word ( ) para espaço normal
-  textoTema = textoTema.replace(/ /g, ' ').trim();
-  const principal = textoTema.split(/\s*[–\-—]\s*/)[0].trim();
-  const mat = materias.find(m => {
-    const mn = m.nome.toLowerCase();
-    const tn = principal.toLowerCase();
-    return tn === mn ||
-      tn.startsWith(mn) ||
-      mn.startsWith(tn) ||
-      mn.split(' ').slice(0,2).join(' ') === tn.split(' ').slice(0,2).join(' ');
-  });
-  return { tema: mat?.nome || principal, codigoMateria: mat?.codigo || '' };
+  // Normaliza non-breaking space do Word para espaco normal
+  textoTema = textoTema.replace(/\u00a0/g, ' ').trim();
+  // A matéria vem antes do primeiro hífen; o que segue é o subtema
+  const principal = textoTema.split(/\s*[\u2013\u2014-]\s*/)[0].trim();
+  const alvo = _normTema(principal);
+  if (!alvo) return { tema: principal, codigoMateria: '' };
+
+  let melhor = null, melhorScore = 0;
+  for (const m of materias) {
+    const mn = _normTema(m.nome);
+    if (!mn) continue;
+    let score = 0;
+    if (mn === alvo) score = 100;
+    else if (alvo.startsWith(mn) || mn.startsWith(alvo)) score = 80;
+    else if ((alvo.includes(mn) && mn.split(' ').length >= 2) ||
+             (mn.includes(alvo) && alvo.split(' ').length >= 2)) score = 60;
+    if (score > melhorScore) { melhorScore = score; melhor = m; }
+  }
+  return { tema: melhor ? melhor.nome : principal, codigoMateria: melhor ? melhor.codigo : '' };
 }
 
 // Extrai texto puro de HTML preservando quebras de parágrafo
@@ -2768,6 +2787,18 @@ function obterHtmlRico(html) {
     node.replaceWith(externo);
   });
 
+  // 1.5. Detecta sombreamento de parágrafo do Word (fundo amarelo/cinza)
+  //      antes de remover os estilos — marca com data-shd para virar caixa destacada
+  d.querySelectorAll('p[style], div[style], li[style], td[style]').forEach(n => {
+    const st = n.getAttribute('style') || '';
+    const m = st.match(/background(?:-color)?\s*:\s*([^;]+)/i);
+    if (!m) return;
+    const cor = m[1].trim().toLowerCase();
+    if (/^(transparent|none|white|#fff(fff)?|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))$/.test(cor)) return;
+    const amarelo = /(ffff00|ffffcc|fff2cc|fef3c7|ffe599|yellow|255\s*,\s*255\s*,\s*0)/i.test(cor);
+    n.setAttribute('data-shd', amarelo ? 'amarelo' : 'cinza');
+  });
+
   // 2. Remove atributos de estilo/classe mantendo apenas a estrutura semântica
   d.querySelectorAll('*').forEach(n => {
     n.removeAttribute('style');
@@ -2894,17 +2925,36 @@ function removerPrefixoAlternativa(no) {
 }
 
 // Monta o HTML da explicação preservando os parágrafos originais do Word,
-// adicionando apenas as caixas de destaque (amarela) e de resumo (verde),
-// no mesmo padrão das questões cadastradas manualmente
+// adicionando as caixas de destaque (amarela) e de resumo (cinza/verde)
+// no mesmo padrão das questões cadastradas manualmente.
+// As caixas são detectadas de duas formas: pelo título da seção
+// ("Destaque do informativo" / "Resumo da Tese") OU pelo sombreamento
+// de fundo aplicado no próprio Word (data-shd marcado em obterHtmlRico).
+const BOX_AMARELO = '<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">';
+const BOX_CINZA   = '<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">';
+
 function montarExplicacaoRica(nosExp) {
   const SECAO = /^(Fundamento legal|Base legal|Destaque do informativo|Dispositivos Legais|TESES PARA QUEST|Resumo da Tese|Tese\s+\d+\s*[—–-])/i;
   let html = '';
-  let box = null; // null | 'amarelo' | 'verde'
-  const fecharBox = () => { if (box) { html += '</div>\n'; box = null; } };
+  let box = null;        // null | 'amarelo' | 'cinza'
+  let boxOrigem = null;  // 'titulo' | 'shd'
+  const fecharBox = () => { if (box) { html += '</div>\n'; box = null; boxOrigem = null; } };
+
+  // Emite um nó sem o atributo data-shd
+  const emitir = (no) => {
+    if (no.hasAttribute && no.hasAttribute('data-shd')) {
+      const clone = no.cloneNode(true);
+      clone.removeAttribute('data-shd');
+      html += clone.outerHTML + '\n';
+    } else {
+      html += no.outerHTML + '\n';
+    }
+  };
 
   for (const no of nosExp) {
     if (no.nodeType !== 1) continue;
     const txt = _txtNo(no);
+    const shd = no.getAttribute ? no.getAttribute('data-shd') : null;
 
     // Parágrafo vazio = espaçamento (ignora dentro das caixas)
     if (!txt) {
@@ -2912,24 +2962,36 @@ function montarExplicacaoRica(nosExp) {
       continue;
     }
 
-    if (/^Destaque do informativo/i.test(txt)) {
+    // ── Títulos que abrem caixas ──
+    if (/^Destaque do informativo/i.test(txt) && txt.length < 60) {
       fecharBox();
-      html += no.outerHTML + '\n';
-      html += '<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">\n';
-      box = 'amarelo';
+      emitir(no);
+      html += BOX_AMARELO + '\n';
+      box = 'amarelo'; boxOrigem = 'titulo';
       continue;
     }
-    if (/^Resumo da Tese para Memoriza/i.test(txt)) {
+    if (/^Resumo da Tese para Memoriza/i.test(txt) && txt.length < 60) {
       fecharBox();
-      html += no.outerHTML + '\n';
-      html += '<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">\n';
-      box = 'verde';
+      emitir(no);
+      html += BOX_CINZA + '\n';
+      box = 'cinza'; boxOrigem = 'titulo';
       continue;
     }
-    // Nova seção encerra a caixa aberta
-    if (box && SECAO.test(txt)) fecharBox();
 
-    html += no.outerHTML + '\n';
+    // ── Parágrafo com sombreamento do Word ──
+    if (shd) {
+      if (!box) {
+        html += (shd === 'amarelo' ? BOX_AMARELO : BOX_CINZA) + '\n';
+        box = shd; boxOrigem = 'shd';
+      }
+      emitir(no);
+      continue;
+    }
+
+    // ── Parágrafo comum: fecha caixa aberta quando aplicável ──
+    if (box && (boxOrigem === 'shd' || SECAO.test(txt))) fecharBox();
+
+    emitir(no);
   }
   fecharBox();
   return html.trim();
@@ -2949,11 +3011,30 @@ function parsearQuestaoRica(nos) {
   const infM = textoTotal.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
   const informativo = infM ? parseInt(infM[1]) : null;
 
-  // 3. TEMA — primeira linha "Direito ..." / "Processo ..." (para mapear a matéria)
+  // 3. TEMA — linha logo abaixo da data do Informativo, no formato
+  //    "Matéria – Subtema" (ex.: "Direito Processual Civil – Execução Fiscal")
   let temaRaw = '';
-  for (const no of nos.slice(0, 8)) {
-    const t = _txtNo(no);
-    if (/^(Direito|Processo)\b/i.test(t) && t.length > 4) { temaRaw = t; break; }
+  {
+    let idxInf = -1;
+    for (let i = 0; i < Math.min(10, nos.length); i++) {
+      if (/Informativo\s+n/i.test(_txtNo(nos[i]))) { idxInf = i; break; }
+    }
+    if (idxInf !== -1) {
+      for (let i = idxInf + 1; i < Math.min(idxInf + 4, nos.length); i++) {
+        const t = _txtNo(nos[i]);
+        if (!t) continue;
+        if (/^Enunciado/i.test(t) || /^\(/.test(t) || t.length > 90) break;
+        temaRaw = t;
+        break;
+      }
+    }
+    // Fallback: primeira linha que começa com "Direito"/"Processo"
+    if (!temaRaw) {
+      for (const no of nos.slice(0, 8)) {
+        const t = _txtNo(no);
+        if (/^(Direito|Processo)\b/i.test(t) && t.length > 4) { temaRaw = t; break; }
+      }
+    }
   }
   const { tema, codigoMateria } = mapearTema(temaRaw);
 

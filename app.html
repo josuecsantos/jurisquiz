@@ -847,6 +847,7 @@
         <button class="admin-tab" onclick="switchAdminTab('materias')">Matérias</button>
         <button class="admin-tab" onclick="switchAdminTab('comentarios')">Comentários</button>
         <button class="admin-tab" onclick="switchAdminTab('importar')" style="color:var(--gold)">⬆ Importar</button>
+        <button class="admin-tab" onclick="switchAdminTab('importar2')" style="color:var(--green)">⬆ Importar 2</button>
       </div>
 
       <!-- Painel Usuários -->
@@ -916,6 +917,40 @@
         </div>
 
         <div id="import-preview" style="margin-top:20px"></div>
+      </div>
+
+      <!-- Painel Importar 2 -->
+      <div id="admin-panel-importar2" class="admin-panel">
+        <div class="admin-section-header">
+          <div class="section-title" style="margin:0">Importar questão (formatação fiel)</div>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+          Cole a questão inteira do Word aqui — incluindo cabeçalho (tribunal, informativo, matéria), enunciado, alternativas (A) a (E), gabarito e explicação.
+          Clique em <strong>Processar</strong> para preencher automaticamente todos os campos. A formatação será preservada.
+        </p>
+
+        <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none">
+            <input type="checkbox" id="imp2-incorreta" style="accent-color:var(--gold-dark);width:16px;height:16px">
+            Gabarito é a alternativa <strong>incorreta</strong>
+          </label>
+        </div>
+
+        <div id="imp2-texto"
+          contenteditable="true"
+          style="width:100%;min-height:340px;border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;font-family:'DM Sans',sans-serif;line-height:1.6;outline:none;overflow-y:auto;max-height:600px;background:white"
+        ></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Cole diretamente do Word (<strong>Ctrl+V</strong>) — a formatação será mantida integralmente.</div>
+
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center">
+          <button class="btn-add-questao" onclick="processarImportar2()" style="background:var(--green);color:white;border:none">
+            ⚡ Processar
+          </button>
+          <button onclick="document.getElementById('imp2-texto').innerHTML='';document.getElementById('imp2-status').textContent=''" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px">
+            Limpar
+          </button>
+          <span id="imp2-status" style="font-size:12px;color:var(--muted)"></span>
+        </div>
       </div>
         <div class="admin-section-header">
           <div class="section-title" style="margin:0">Gerenciar comentários</div>
@@ -2246,7 +2281,8 @@ function switchAdminTab(tab) {
       (i === 1 && tab === 'questoes') ||
       (i === 2 && tab === 'materias') ||
       (i === 3 && tab === 'comentarios') ||
-      (i === 4 && tab === 'importar')
+      (i === 4 && tab === 'importar') ||
+      (i === 5 && tab === 'importar2')
     );
   });
   document.getElementById('admin-panel-usuarios').classList.toggle('active', tab === 'usuarios');
@@ -2254,6 +2290,7 @@ function switchAdminTab(tab) {
   document.getElementById('admin-panel-materias').classList.toggle('active', tab === 'materias');
   document.getElementById('admin-panel-comentarios').classList.toggle('active', tab === 'comentarios');
   document.getElementById('admin-panel-importar').classList.toggle('active', tab === 'importar');
+  document.getElementById('admin-panel-importar2').classList.toggle('active', tab === 'importar2');
   if (tab === 'questoes') renderAdminQuestoes();
   if (tab === 'materias') renderAdminMaterias();
   if (tab === 'comentarios') carregarComentariosAdmin();
@@ -3467,6 +3504,186 @@ function previewImport() {
 }
 
 // ── Executar importação ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// IMPORTAR 2 — colagem única com formatação fiel do Word
+// ═══════════════════════════════════════════════════════════════
+
+function processarImportar2() {
+  const el = document.getElementById('imp2-texto');
+  const status = document.getElementById('imp2-status');
+  const incorretaMode = document.getElementById('imp2-incorreta').checked;
+  if (!el.textContent.trim()) { status.textContent = '⚠ Cole a questão antes de processar.'; return; }
+
+  // 1. Limpa estilos do Word preservando negrito/itálico/sublinhado e shading
+  el.innerHTML = obterHtmlRico(el.innerHTML);
+
+  // 2. Coleta todos os nós-filhos (parágrafos)
+  const nos = Array.from(el.children);
+  if (nos.length < 5) {
+    status.textContent = '⚠ Conteúdo insuficiente. Verifique se colou a questão completa.';
+    return;
+  }
+
+  // ── Helper: texto normalizado ──
+  const txt = (no) => _txtNo(no);
+
+  // ── 3. IDENTIFICAR SEÇÕES ──
+  let idxPrimAlt = -1, idxGabarito = -1, idxCorreta = -1, idxIncorreta = -1;
+  nos.forEach((no, i) => {
+    const t = txt(no);
+    if (idxPrimAlt === -1 && /^\(\s*A\s*\)/.test(t)) idxPrimAlt = i;
+    if (idxGabarito === -1 && idxPrimAlt !== -1 && i > idxPrimAlt && /^Gabarito\b/i.test(t)) idxGabarito = i;
+    if (idxCorreta === -1 && /✅/.test(t)) idxCorreta = i;
+    if (idxIncorreta === -1 && /❌/.test(t)) idxIncorreta = i;
+  });
+
+  if (idxPrimAlt === -1) {
+    status.textContent = '⚠ Não encontrei as alternativas (A)–(E). Verifique o formato.';
+    return;
+  }
+
+  // ── 4. CABEÇALHO: tribunal, informativo, tema ──
+  let tribunal = '', informativo = '', temaRaw = '', tipoTese = '';
+  const cabNos = nos.slice(0, idxPrimAlt);
+  for (const no of cabNos) {
+    const t = txt(no);
+    if (!tribunal && /^(STJ|STF)\b/i.test(t)) {
+      tribunal = t.startsWith('STF') ? 'STF' : 'STJ';
+      if (/repercuss[aã]o\s+geral/i.test(t)) tipoTese = 'Repercussão Geral';
+      else if (/repetitivos?/i.test(t)) tipoTese = 'Recursos Repetitivos';
+      else if (/\bIAC\b|assun[çc][aã]o/i.test(t)) tipoTese = 'IAC';
+    }
+    if (!informativo) {
+      const m = t.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
+      if (m) informativo = m[1];
+    }
+  }
+  // Tema: linha após o informativo
+  {
+    let idxInf = -1;
+    for (let i = 0; i < cabNos.length; i++) {
+      if (/Informativo\s+n/i.test(txt(cabNos[i]))) { idxInf = i; break; }
+    }
+    if (idxInf !== -1) {
+      for (let i = idxInf + 1; i < cabNos.length; i++) {
+        const t = txt(cabNos[i]);
+        if (!t || /^Enunciado/i.test(t)) continue;
+        temaRaw = t; break;
+      }
+    }
+    if (!temaRaw) {
+      for (const no of cabNos) {
+        const t = txt(no);
+        if (/^(Direito|Processo)\b/i.test(t)) { temaRaw = t; break; }
+      }
+    }
+  }
+  const { tema, codigoMateria } = mapearTema(temaRaw);
+
+  // ── 5. ENUNCIADO — HTML fiel ao Word (cabeçalho + corpo) ──
+  let idxEnunciadoLabel = -1;
+  for (let i = 0; i < idxPrimAlt; i++) {
+    if (/^Enunciado\s*:?\s*$/i.test(txt(nos[i]))) { idxEnunciadoLabel = i; break; }
+  }
+  const enunciadoNos = nos.slice(0, idxPrimAlt);
+  const enunciadoHtml = enunciadoNos.map(n => n.outerHTML).join('\n');
+
+  // ── 6. ALTERNATIVAS — preserva HTML interno ──
+  const fimAlts = idxGabarito !== -1 ? idxGabarito : (idxCorreta !== -1 ? idxCorreta : (idxIncorreta !== -1 ? idxIncorreta : nos.length));
+  const alts = {};
+  let letraAtual = null;
+  for (let i = idxPrimAlt; i < fimAlts; i++) {
+    const no = nos[i];
+    const t = txt(no);
+    const m = t.match(/^\(\s*([A-E])\s*\)/i);
+    if (m) {
+      letraAtual = m[1].toUpperCase();
+      alts[letraAtual] = removerPrefixoAlternativa(no);
+    } else if (letraAtual && t) {
+      alts[letraAtual] += '<br>' + no.innerHTML.trim();
+    }
+  }
+
+  // ── 7. GABARITO ──
+  let gabarito = '';
+  for (let i = fimAlts; i < Math.min(fimAlts + 5, nos.length); i++) {
+    const t = txt(nos[i]);
+    const m = t.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i) ||
+              t.match(/\bAlternativa\s+([A-E])\b/i);
+    if (m) { gabarito = m[1].toUpperCase(); break; }
+  }
+  if (!gabarito) {
+    // Tenta encontrar nos marcadores ✅/❌
+    for (let i = fimAlts; i < nos.length; i++) {
+      const t = txt(nos[i]);
+      const m = t.match(/✅.*?\(([A-E])\)/i) || t.match(/\(([A-E])\).*?✅/i);
+      if (m) { gabarito = m[1].toUpperCase(); break; }
+    }
+  }
+  // Fallback: busca no texto todo
+  if (!gabarito) {
+    const todoTexto = nos.map(txt).join('\n');
+    const m = todoTexto.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i);
+    if (m) gabarito = m[1].toUpperCase();
+  }
+
+  // ── 8. EXPLICAÇÃO — tudo após gabarito/✅/❌, com caixas coloridas ──
+  let explicacaoStart = fimAlts;
+  if (idxCorreta !== -1) explicacaoStart = idxCorreta + 1;
+  else if (idxIncorreta !== -1) explicacaoStart = idxIncorreta + 1;
+  else if (idxGabarito !== -1) {
+    explicacaoStart = idxGabarito + 1;
+    // Pula linhas "Alternativa X" / "✅ Correto!"
+    while (explicacaoStart < nos.length) {
+      const t = txt(nos[explicacaoStart]);
+      if (/^Alternativa\s+[A-E]\s*$/i.test(t) || /^[✅❌✗✓]/.test(t)) { explicacaoStart++; continue; }
+      break;
+    }
+  }
+  const explicacao = montarExplicacaoRica(nos.slice(explicacaoStart));
+
+  // ── 9. ABRIR MODAL COM CAMPOS PREENCHIDOS ──
+  editingQuestaoId = null;
+  const modal = document.getElementById('modal-questao');
+  document.getElementById('modal-questao-title').textContent = 'Nova questão (Importar 2)';
+
+  // Popula dropdown de matérias
+  const sel = document.getElementById('mq-tema');
+  sel.innerHTML = '<option value="">Selecione a matéria...</option>' +
+    materias.filter(m => m.ativo).map(m => `<option value="${escapeAttr(m.nome)}" data-codigo="${m.codigo || ''}">${m.nome}</option>`).join('');
+
+  document.getElementById('mq-tribunal').value = tribunal;
+  document.getElementById('mq-informativo').value = informativo;
+  document.getElementById('mq-dificuldade').value = 'médio';
+  sel.value = tema;
+  document.getElementById('mq-tipo-tese').value = tipoTese;
+  document.getElementById('mq-gabarito').value = gabarito || 'A';
+
+  // Enunciado e alternativas com HTML fiel
+  document.getElementById('mq-enunciado').innerHTML = enunciadoHtml;
+  document.getElementById('mq-alt-a').innerHTML = alts['A'] || '';
+  document.getElementById('mq-alt-b').innerHTML = alts['B'] || '';
+  document.getElementById('mq-alt-c').innerHTML = alts['C'] || '';
+  document.getElementById('mq-alt-d').innerHTML = alts['D'] || '';
+  document.getElementById('mq-alt-e').innerHTML = alts['E'] || '';
+  document.getElementById('mq-explicacao').innerHTML = explicacao;
+
+  // Preview do código
+  atualizarCodigoPreview();
+
+  modal.classList.remove('hidden');
+
+  // Feedback
+  const partes = [];
+  if (tribunal) partes.push(tribunal);
+  if (informativo) partes.push('Inf. ' + informativo);
+  if (tema) partes.push(tema);
+  if (gabarito) partes.push('Gab: ' + gabarito);
+  if (incorretaMode) partes.push('(incorreta)');
+  partes.push(Object.keys(alts).length + ' alternativas');
+  status.textContent = '✅ ' + partes.join(' · ') + ' — revise os campos e salve.';
+}
+
 async function executarImport() {
   if (!questoesParaImportar.length) return;
   const btn = document.getElementById('btn-importar-executar');

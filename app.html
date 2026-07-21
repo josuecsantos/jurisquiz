@@ -1752,7 +1752,7 @@ function mostrarQuestaoFiltrada() {
     filtradas = filtradas.filter(q => q.tribunal === filtroTribunal);
   }
   if (filtroMateria && filtroMateria !== 'tudo') {
-    filtradas = filtradas.filter(q => q.tema && q.tema.toUpperCase().includes(filtroMateria.toUpperCase()));
+    filtradas = filtradas.filter(q => q.tema && q.tema.toUpperCase() === filtroMateria.toUpperCase());
   }
   // Aplica filtro de tese
   filtradas = aplicarFiltroTese(filtradas, filtroTese);

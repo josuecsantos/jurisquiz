@@ -847,6 +847,7 @@
         <button class="admin-tab" onclick="switchAdminTab('materias')">Matérias</button>
         <button class="admin-tab" onclick="switchAdminTab('comentarios')">Comentários</button>
         <button class="admin-tab" onclick="switchAdminTab('importar')" style="color:var(--gold)">⬆ Importar</button>
+        <button class="admin-tab" onclick="switchAdminTab('importar2')" style="color:var(--green)">⬆ Importar 2</button>
       </div>
 
       <!-- Painel Usuários -->
@@ -916,6 +917,45 @@
         </div>
 
         <div id="import-preview" style="margin-top:20px"></div>
+      </div>
+
+      <!-- Painel Importar 2 -->
+      <div id="admin-panel-importar2" class="admin-panel">
+        <div class="admin-section-header">
+          <div class="section-title" style="margin:0">Importar questão (formatação fiel)</div>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+          Cole a questão inteira do Word aqui — incluindo cabeçalho (tribunal, informativo, matéria), enunciado, alternativas (A) a (E), gabarito e explicação.
+          Clique em <strong>Processar</strong> para preencher automaticamente todos os campos. A formatação será preservada.
+        </p>
+
+        <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none">
+            <input type="checkbox" id="imp2-incorreta" style="accent-color:var(--gold-dark);width:16px;height:16px">
+            Gabarito é a alternativa <strong>incorreta</strong>
+          </label>
+        </div>
+
+        <div id="imp2-texto"
+          contenteditable="true"
+          style="width:100%;min-height:340px;border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;font-size:13px;font-family:'DM Sans',sans-serif;line-height:1.6;outline:none;overflow-y:auto;max-height:600px;background:white"
+        ></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Cole diretamente do Word (<strong>Ctrl+V</strong>) — a formatação será mantida integralmente.</div>
+
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center">
+          <button class="btn-add-questao" onclick="processarImportar2()" style="background:var(--green);color:white;border:none">
+            ⚡ Processar
+          </button>
+          <button class="btn-add-questao" id="btn-imp2-importar" onclick="importarTodasImp2()" style="display:none">
+            ⬆ Importar todas
+          </button>
+          <button onclick="limparImportar2()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px">
+            Limpar
+          </button>
+          <span id="imp2-status" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+
+        <div id="imp2-preview" style="margin-top:20px"></div>
       </div>
         <div class="admin-section-header">
           <div class="section-title" style="margin:0">Gerenciar comentários</div>
@@ -1452,48 +1492,56 @@ async function iniciarApp() {
 }
 
 async function renderMateriaGrid() {
-  await carregarMaterias();
+  if (!materias.length) await carregarMaterias();
   const grid = document.getElementById('materia-grid');
   const ativas = materias.filter(m => m.ativo);
 
-  // Busca estado de cada matéria via RPC no servidor (escala para qualquer nº de questões)
-  let estadoMap = {};
-  try {
-    const userId = await getUserId();
-    const res = await api('rpc/estado_materias', {
-      method: 'POST',
-      body: JSON.stringify({ p_usuario_id: userId })
-    });
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      data.forEach(r => { estadoMap[r.materia_nome] = r.estado; });
+  // Considera apenas as questões do tribunal e do tipo de tese escolhidos nos passos anteriores
+  let base = questoes;
+  if (filtroTribunal && filtroTribunal !== 'tudo') base = base.filter(q => q.tribunal === filtroTribunal);
+  base = aplicarFiltroTese(base, filtroTese);
+
+  // Uma única passada pelo histórico e pelas questões (escala para dezenas de milhares)
+  const ultimaRespPorQuestao = new Map();
+  for (const h of historico) {
+    const t = new Date(h.created_at || 0).getTime();
+    if (!ultimaRespPorQuestao.has(h.questao_id) || t > ultimaRespPorQuestao.get(h.questao_id)) {
+      ultimaRespPorQuestao.set(h.questao_id, t);
     }
-  } catch (e) {
-    console.warn('Fallback: cálculo local de estado_materias', e);
-    // Fallback local caso a RPC não exista ainda
-    const respondidas = new Set(historico.map(h => h.questao_id));
-    function estadoLocal(nome) {
-      const qm = questoes.filter(q => q.tema && q.tema.toUpperCase() === nome.toUpperCase());
-      if (!qm.length) return 'neutra';
-      const resolvidas = qm.filter(q => respondidas.has(q.id)).length;
-      if (resolvidas === qm.length) return 'zerada';
-      const ultResp = historico.filter(h => qm.some(q => q.id === h.questao_id)).map(h => new Date(h.created_at || 0));
-      const ultRespDt = ultResp.length ? new Date(Math.max(...ultResp)) : new Date(0);
-      if (qm.some(q => !respondidas.has(q.id) && new Date(q.created_at || 0) > ultRespDt)) return 'nova';
-      return 'neutra';
+  }
+  const stats = new Map(); // TEMA_MAIUSCULO -> { total, resolvidas, ultimaResp, pendentes: [created_at] }
+  for (const q of base) {
+    if (!q.tema) continue;
+    const k = q.tema.trim().toUpperCase();
+    let s = stats.get(k);
+    if (!s) { s = { total: 0, resolvidas: 0, ultimaResp: 0, pendentes: [] }; stats.set(k, s); }
+    s.total++;
+    const tr = ultimaRespPorQuestao.get(q.id);
+    if (tr !== undefined) {
+      s.resolvidas++;
+      if (tr > s.ultimaResp) s.ultimaResp = tr;
+    } else {
+      s.pendentes.push(new Date(q.created_at || 0).getTime());
     }
-    ativas.forEach(m => { estadoMap[m.nome] = estadoLocal(m.nome); });
+  }
+
+  function estadoMateria(nome) {
+    const s = stats.get(nome.trim().toUpperCase());
+    if (!s || !s.total) return 'neutra';
+    if (s.resolvidas === s.total) return 'zerada';          // respondeu todas
+    if (s.pendentes.some(t => t > s.ultimaResp)) return 'nova'; // questão nova desde a última resposta
+    return 'neutra';
   }
 
   grid.innerHTML = `<button class="materia-btn materia-btn-all" onclick="selecionarMateria('tudo')">Todas as matérias</button>` +
     ativas.map(m => {
-      const estado = estadoMap[m.nome] || 'neutra';
+      const estado = estadoMateria(m.nome);
       const cls = estado === 'nova' ? ' nova' : estado === 'zerada' ? ' zerada' : '';
       return `<button class="materia-btn${cls}" onclick="selecionarMateria('${escapeAttr(m.nome)}')">${escapeHtml(m.nome)}</button>`;
     }).join('');
 }
 
-// Carrega todos os registros de um endpoint com paginação automática
+// Carrega todos os registros de um endpoint em blocos de 1.000 (limite do Supabase por requisição)
 async function carregarPaginado(endpoint, pageSize = 1000) {
   let todos = [];
   let offset = 0;
@@ -1501,7 +1549,7 @@ async function carregarPaginado(endpoint, pageSize = 1000) {
   while (true) {
     const res = await api(`${endpoint}${sep}limit=${pageSize}&offset=${offset}`);
     const data = await res.json();
-    if (!Array.isArray(data)) return data; // erro ou resposta inesperada
+    if (!Array.isArray(data)) { console.warn('Erro ao carregar', endpoint, data); break; }
     todos = todos.concat(data);
     if (data.length < pageSize) break;
     offset += pageSize;
@@ -1511,13 +1559,12 @@ async function carregarPaginado(endpoint, pageSize = 1000) {
 
 async function carregarDados() {
   const userId = await getUserId();
-
-  // Carrega todas as questões com paginação (escala para 15k+)
-  questoes = await carregarPaginado('questoes?select=*&order=created_at.desc');
-
-  // Carrega todo o histórico do usuário com paginação
-  historico = await carregarPaginado(`respostas?usuario_id=eq.${userId}&select=*,questoes(enunciado,tribunal,tema)&order=created_at.desc`);
-
+  const [qs, hs] = await Promise.all([
+    carregarPaginado('questoes?select=*&order=created_at.desc'),
+    carregarPaginado(`respostas?usuario_id=eq.${userId}&select=*,questoes(enunciado,tribunal,tema)&order=created_at.desc`)
+  ]);
+  questoes = qs;
+  historico = hs;
   preencherFiltros();
 }
 
@@ -1588,7 +1635,7 @@ function selecionarTribunal(t) {
     if (t === 'tudo') {
       // Pula o filtro de tese — vai direto para matéria
       document.getElementById('step-materia-label').textContent = 'Passo 2 — Escolha a matéria';
-      document.getElementById('step-materia').style.display = 'block';
+      document.getElementById('step-materia').style.display = 'block'; renderMateriaGrid();
       atualizarDots(2);
     } else {
       // STJ ou STF — mostra filtro de tese
@@ -1616,7 +1663,7 @@ function selecionarTese(t) {
       : filtroTese === 'iac' ? 'IAC'
       : 'Todas as teses';
     document.getElementById('step-materia-label').textContent = `Passo 3 — Matéria (${filtroTribunal} · ${teseLabel})`;
-    document.getElementById('step-materia').style.display = 'block';
+    document.getElementById('step-materia').style.display = 'block'; renderMateriaGrid();
     atualizarDots(2);
   }, 200);
 }
@@ -1693,7 +1740,7 @@ function mostrarQuestaoFiltrada() {
     filtradas = filtradas.filter(q => q.tribunal === filtroTribunal);
   }
   if (filtroMateria && filtroMateria !== 'tudo') {
-    filtradas = filtradas.filter(q => q.tema && q.tema.toUpperCase().includes(filtroMateria.toUpperCase()));
+    filtradas = filtradas.filter(q => q.tema && q.tema.toUpperCase() === filtroMateria.toUpperCase());
   }
   // Aplica filtro de tese
   filtradas = aplicarFiltroTese(filtradas, filtroTese);
@@ -2227,7 +2274,8 @@ function switchAdminTab(tab) {
       (i === 1 && tab === 'questoes') ||
       (i === 2 && tab === 'materias') ||
       (i === 3 && tab === 'comentarios') ||
-      (i === 4 && tab === 'importar')
+      (i === 4 && tab === 'importar') ||
+      (i === 5 && tab === 'importar2')
     );
   });
   document.getElementById('admin-panel-usuarios').classList.toggle('active', tab === 'usuarios');
@@ -2235,6 +2283,7 @@ function switchAdminTab(tab) {
   document.getElementById('admin-panel-materias').classList.toggle('active', tab === 'materias');
   document.getElementById('admin-panel-comentarios').classList.toggle('active', tab === 'comentarios');
   document.getElementById('admin-panel-importar').classList.toggle('active', tab === 'importar');
+  document.getElementById('admin-panel-importar2').classList.toggle('active', tab === 'importar2');
   if (tab === 'questoes') renderAdminQuestoes();
   if (tab === 'materias') renderAdminMaterias();
   if (tab === 'comentarios') carregarComentariosAdmin();
@@ -2359,7 +2408,7 @@ function renderAdminQuestoes() {
   el.innerHTML = lista.map(q => `
     <div class="questao-admin-card">
       <div class="questao-admin-top">
-        <div class="questao-admin-text">${escapeHtml(q.enunciado)}</div>
+        <div class="questao-admin-text">${escapeHtml((q.enunciado || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim())}</div>
         <span class="badge badge-ink">${q.tribunal || '—'}</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
@@ -2434,17 +2483,31 @@ async function atualizarCodigoPreview() {
     return;
   }
 
-  // Busca próximo número sequencial para este grupo
   const prefixo = `${tribunal}-${informativo}-${codigoMateria}-`;
-  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo));
-  const proximo = String(existentes.length + 1).padStart(3, '0');
+  // Se o código atual já usa esse prefixo, mostra o mesmo código
+  const questaoExistente = editingQuestaoId ? questoes.find(q => q.id === editingQuestaoId) : null;
+  if (questaoExistente?.codigo?.startsWith(prefixo)) {
+    preview.textContent = questaoExistente.codigo;
+    return;
+  }
+  // Caso contrário, mostra o próximo sequencial
+  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo) && q.id !== editingQuestaoId);
+  const nums = existentes.map(q => {
+    const m = q.codigo.match(/-(\d+)$/);
+    return m ? parseInt(m[1], 10) : 0;
+  });
+  const proximo = String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
   preview.textContent = `${prefixo}${proximo}`;
 }
 
-async function gerarCodigo(tribunal, informativo, codigoMateria) {
+async function gerarCodigo(tribunal, informativo, codigoMateria, excluirId) {
   const prefixo = `${tribunal}-${informativo}-${codigoMateria}-`;
-  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo));
-  const proximo = String(existentes.length + 1).padStart(3, '0');
+  const existentes = questoes.filter(q => q.codigo && q.codigo.startsWith(prefixo) && q.id !== excluirId);
+  const nums = existentes.map(q => {
+    const m = q.codigo.match(/-(\d+)$/);
+    return m ? parseInt(m[1], 10) : 0;
+  });
+  const proximo = String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
   return `${prefixo}${proximo}`;
 }
 
@@ -2467,11 +2530,20 @@ async function salvarQuestaoAdmin() {
 
   btn.disabled = true; btn.textContent = 'Salvando...';
 
-  // Gera código: mantém o existente, ou gera novo se não tiver
+  // Gera código: regenera se matéria mudou ou se ainda não existe
   const questaoExistente = editingQuestaoId ? questoes.find(q => q.id === editingQuestaoId) : null;
   let codigo = questaoExistente?.codigo || null;
-  if (!codigo && tribunal && informativo && codigoMateria) {
-    codigo = await gerarCodigo(tribunal, informativo, codigoMateria);
+
+  if (tribunal && informativo && codigoMateria) {
+    // Verifica se o código atual já contém o código da matéria selecionada
+    const prefixoEsperado = `${tribunal}-${informativo}-${codigoMateria}-`;
+    if (!codigo || !codigo.startsWith(prefixoEsperado)) {
+      // Matéria mudou (ou código inexistente/com "--"): regenera
+      codigo = await gerarCodigo(tribunal, informativo, codigoMateria, editingQuestaoId);
+    }
+  } else if (!codigo && tribunal && informativo) {
+    // Sem matéria selecionada e sem código: gera com campo vazio
+    codigo = await gerarCodigo(tribunal, informativo, '', editingQuestaoId);
   }
 
   const payload = {
@@ -2538,56 +2610,8 @@ function limparEstilosWord() {
 
 // Limpa HTML do Word preservando estrutura, negrito e itálico
 function limparHtmlWord(html) {
-  const d = document.createElement('div');
-  d.innerHTML = html;
-
-  // 1. Converte spans com font-weight → <strong>, font-style italic → <em>
-  //    Processa de dentro para fora (childNodes primeiro)
-  function processarNegrito(root) {
-    root.querySelectorAll('span[style], b[style]').forEach(node => {
-      const fw = node.style.fontWeight;
-      const fs = node.style.fontStyle;
-      if (fw === 'bold' || fw === '700' || fw === '600') {
-        const s = document.createElement('strong');
-        s.innerHTML = node.innerHTML;
-        node.replaceWith(s);
-      } else if (fs === 'italic') {
-        const e = document.createElement('em');
-        e.innerHTML = node.innerHTML;
-        node.replaceWith(e);
-      }
-    });
-  }
-  processarNegrito(d);
-
-  // 2. Remove todos os atributos de estilo/classe exceto de tags semânticas
-  d.querySelectorAll('*').forEach(node => {
-    const tag = node.tagName.toLowerCase();
-    if (['strong','em','b','i'].includes(tag)) return;
-    node.removeAttribute('style');
-    node.removeAttribute('class');
-    node.removeAttribute('lang');
-    node.removeAttribute('dir');
-    node.removeAttribute('xml:lang');
-  });
-
-  // 3. Substitui spans por seu conteúdo (inline, sem quebra)
-  d.querySelectorAll('span').forEach(span => {
-    span.replaceWith(...span.childNodes);
-  });
-
-  // 4. Remove tags desnecessárias do Word (w:, o:, etc via comments)
-  // Remove comentários HTML do Word
-  const html2 = d.innerHTML
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/ /g, ' ')
-    // Remove atributos residuais do Word
-    .replace(/\s*(xmlns|mso-|panose-|font-family|margin|line-height|text-indent|text-align|tab-stops)[^"']*?["'][^"']*?["']/gi, '')
-    .replace(/\s+>/g, '>')
-    .replace(/<p><\/p>/g, '<p>\u00a0</p>'); // preserva parágrafos vazios (espaçamento)
-
-  return html2;
+  return obterHtmlRico(html)
+    .replace(/<p>\s*<\/p>/g, '<p>\u00a0</p>'); // preserva paragrafos vazios (espacamento)
 }
 
 // Extrai HTML limpo de um trecho de texto (preserva <strong>, <em>, <p>)
@@ -2608,20 +2632,39 @@ function extrairHtmlLimpo(html) {
   return d.innerHTML;
 }
 
+// Normaliza nome de tema/matéria para comparação:
+// minúsculas, sem acentos, "processual" ≈ "processo", ignora o prefixo "Direito"
+function _normTema(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\bprocessual\b/g, 'processo')
+    .replace(/^direito\s+/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function mapearTema(textoTema) {
   if (!textoTema) return { tema: '', codigoMateria: '' };
-  // Normaliza non-breaking space do Word ( ) para espaço normal
-  textoTema = textoTema.replace(/ /g, ' ').trim();
-  const principal = textoTema.split(/\s*[–\-—]\s*/)[0].trim();
-  const mat = materias.find(m => {
-    const mn = m.nome.toLowerCase();
-    const tn = principal.toLowerCase();
-    return tn === mn ||
-      tn.startsWith(mn) ||
-      mn.startsWith(tn) ||
-      mn.split(' ').slice(0,2).join(' ') === tn.split(' ').slice(0,2).join(' ');
-  });
-  return { tema: mat?.nome || principal, codigoMateria: mat?.codigo || '' };
+  // Normaliza non-breaking space do Word para espaco normal
+  textoTema = textoTema.replace(/\u00a0/g, ' ').trim();
+  // A matéria vem antes do primeiro hífen; o que segue é o subtema
+  const principal = textoTema.split(/\s*[\u2013\u2014-]\s*/)[0].trim();
+  const alvo = _normTema(principal);
+  if (!alvo) return { tema: principal, codigoMateria: '' };
+
+  let melhor = null, melhorScore = 0;
+  for (const m of materias) {
+    const mn = _normTema(m.nome);
+    if (!mn) continue;
+    let score = 0;
+    if (mn === alvo) score = 100;
+    else if (alvo.startsWith(mn) || mn.startsWith(alvo)) score = 80;
+    else if ((alvo.includes(mn) && mn.split(' ').length >= 2) ||
+             (mn.includes(alvo) && alvo.split(' ').length >= 2)) score = 60;
+    if (score > melhorScore) { melhorScore = score; melhor = m; }
+  }
+  return { tema: melhor ? melhor.nome : principal, codigoMateria: melhor ? melhor.codigo : '' };
 }
 
 // Extrai texto puro de HTML preservando quebras de parágrafo
@@ -2764,45 +2807,81 @@ function extrairExplicacaoHtml(htmlRico, gabarito) {
   return html.trim();
 }
 
-// Converte HTML do Word em HTML limpo preservando negrito, itálico e parágrafos
+// Converte HTML do Word em HTML limpo preservando negrito, itálico, sublinhado e parágrafos
 function obterHtmlRico(html) {
   const d = document.createElement('div');
-  d.innerHTML = html;
+  d.innerHTML = (html || '').replace(/<!--[\s\S]*?-->/g, '');
 
-  // Converte spans com font-weight bold → <strong>
-  d.querySelectorAll('span[style], b[style]').forEach(node => {
-    const fw = node.style.fontWeight;
-    const fs = node.style.fontStyle;
-    if (fw === 'bold' || fw === '700' || fw === '600') {
-      const s = document.createElement('strong');
-      s.innerHTML = node.innerHTML;
-      node.replaceWith(s);
-    } else if (fs === 'italic') {
-      const e = document.createElement('em');
-      e.innerHTML = node.innerHTML;
-      node.replaceWith(e);
-    }
+  // Remove tags próprias do Word (o:p etc.) sem perder o conteúdo
+  d.querySelectorAll('*').forEach(n => {
+    if (n.tagName && n.tagName.includes(':')) n.replaceWith(...n.childNodes);
   });
 
-  // Remove estilos do Word mantendo apenas estrutura semântica
-  d.querySelectorAll('[style]').forEach(n => {
-    if (!['strong','em','b','i'].includes(n.tagName.toLowerCase())) {
-      n.removeAttribute('style');
-    }
+  // 1. Converte spans com estilo em tags semânticas (negrito, itálico, sublinhado),
+  //    inclusive combinações (negrito+itálico) e spans aninhados.
+  //    Move os nós-filhos reais (não copia innerHTML) para não perder formatação interna.
+  Array.from(d.querySelectorAll('span[style]')).reverse().forEach(node => {
+    const st = node.style;
+    const bold = st.fontWeight === 'bold' || parseInt(st.fontWeight, 10) >= 600;
+    const italic = st.fontStyle === 'italic';
+    const underline = (st.textDecoration || '').includes('underline');
+    if (!bold && !italic && !underline) return;
+    let externo = null, interno = null;
+    const camadas = [];
+    if (bold) camadas.push('strong');
+    if (italic) camadas.push('em');
+    if (underline) camadas.push('u');
+    camadas.forEach(tag => {
+      const el = document.createElement(tag);
+      if (!externo) { externo = el; interno = el; }
+      else { interno.appendChild(el); interno = el; }
+    });
+    while (node.firstChild) interno.appendChild(node.firstChild);
+    node.replaceWith(externo);
   });
-  d.querySelectorAll('[class],[lang],[xml\\:lang]').forEach(n => {
+
+  // 1.5. Detecta sombreamento de parágrafo do Word (fundo amarelo/cinza)
+  //      antes de remover os estilos — marca com data-shd para virar caixa destacada
+  d.querySelectorAll('p[style], div[style], li[style], td[style]').forEach(n => {
+    const st = n.getAttribute('style') || '';
+    const m = st.match(/background(?:-color)?\s*:\s*([^;]+)/i);
+    if (!m) return;
+    const cor = m[1].trim().toLowerCase();
+    if (/^(transparent|none|white|#fff(fff)?|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))$/.test(cor)) return;
+    const amarelo = /(ffff00|ffffcc|fff2cc|fef3c7|ffe599|yellow|255\s*,\s*255\s*,\s*0)/i.test(cor);
+    n.setAttribute('data-shd', amarelo ? 'amarelo' : 'cinza');
+  });
+
+  // 2. Remove atributos de estilo/classe mantendo apenas a estrutura semântica
+  d.querySelectorAll('*').forEach(n => {
+    n.removeAttribute('style');
     n.removeAttribute('class');
     n.removeAttribute('lang');
+    n.removeAttribute('dir');
+    n.removeAttribute('align');
   });
 
-  // Simplifica spans sem formatação
+  // 3. Desembrulha spans restantes (sem formatação)
   d.querySelectorAll('span').forEach(span => {
-    if (!span.querySelector('strong,em,b,i')) {
-      span.replaceWith(...span.childNodes);
-    }
+    span.replaceWith(...span.childNodes);
   });
 
-  return d.innerHTML.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
+  // 4. Normaliza non-breaking spaces apenas em nós de texto com conteúdo real
+  //    (preserva <p>&nbsp;</p> usados como espaçamento)
+  const walker = document.createTreeWalker(d, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const t = walker.currentNode;
+    if (t.textContent.replace(/\u00a0/g, ' ').trim()) {
+      t.textContent = t.textContent.replace(/\u00a0/g, ' ');
+    }
+  }
+
+  // 5. Remove tags de formatação vazias geradas pelo Word
+  d.querySelectorAll('strong, em, b, i, u').forEach(n => {
+    if (!n.textContent.trim() && !n.querySelector('img,br')) n.remove();
+  });
+
+  return d.innerHTML;
 }
 
 // Extrai trecho de HTML entre dois marcadores de texto
@@ -2839,11 +2918,249 @@ function extrairTrechoHtml(htmlRico, marcadorInicio, marcadorFim) {
 }
 
 function parsearQuestoes(html) {
-  const texto = htmlParaTexto(html);
-  // Divide em blocos por cabeçalho STJ/STF (início de linha)
-  const partes = texto.split(/(?=(?:^|\n)(STJ|STF)(?:\s*[–\-—]|\s*\n))/im).filter(b => b.trim().length > 100);
-  const blocos = partes.length > 1 ? partes : [texto];
-  return blocos.map(b => parsearUmaQuestao(b.trim())).filter(Boolean);
+  // 1. Normaliza o HTML do Word (negrito/itálico → strong/em, remove estilos)
+  const d = document.createElement('div');
+  d.innerHTML = obterHtmlRico(html);
+  const nos = Array.from(d.children);
+
+  // Sem estrutura de parágrafos (colou texto puro): usa o parser de texto antigo
+  if (nos.length < 3) {
+    const texto = htmlParaTexto(html);
+    const partes = texto.split(/(?=(?:^|\n)(STJ|STF)(?:\s*[–\-—]|\s*\n))/im).filter(b => b.trim().length > 100);
+    const blocos = partes.length > 1 ? partes : [texto];
+    return blocos.map(b => parsearUmaQuestao(b.trim())).filter(Boolean);
+  }
+
+  // 2. Divide em blocos de questão: cada parágrafo "STJ – ..." / "STF – ..." inicia uma questão
+  const blocos = [];
+  let atual = null;
+  for (const no of nos) {
+    const txt = (no.textContent || '').replace(/\u00a0/g, ' ').trim();
+    if (/^(STJ|STF)\s*([–\-—]|$)/i.test(txt)) {
+      if (atual && atual.length) blocos.push(atual);
+      atual = [no];
+    } else {
+      if (!atual) atual = [];
+      atual.push(no);
+    }
+  }
+  if (atual && atual.length) blocos.push(atual);
+
+  return blocos.map(parsearQuestaoRica).filter(Boolean);
+}
+
+// Texto normalizado de um nó
+function _txtNo(no) {
+  return (no.textContent || '').replace(/\u00a0/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+// Remove o prefixo "(A)" do início de um parágrafo de alternativa,
+// preservando toda a formatação interna (o prefixo pode estar dividido
+// em vários runs de negrito do Word)
+function removerPrefixoAlternativa(no) {
+  const clone = no.cloneNode(true);
+  const m = clone.textContent.replace(/\u00a0/g, ' ').match(/^\s*\(\s*[A-E]\s*\)\s*/i);
+  if (!m) return clone.innerHTML.trim();
+  let restante = m[0].length;
+  const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+  const textos = [];
+  while (walker.nextNode()) textos.push(walker.currentNode);
+  for (const t of textos) {
+    if (restante <= 0) break;
+    const len = t.textContent.length;
+    if (len <= restante) { restante -= len; t.textContent = ''; }
+    else { t.textContent = t.textContent.slice(restante); restante = 0; }
+  }
+  clone.querySelectorAll('strong,em,b,i,u').forEach(n => {
+    if (!n.textContent.trim()) n.remove();
+  });
+  return clone.innerHTML.trim();
+}
+
+// Monta o HTML da explicação preservando os parágrafos originais do Word,
+// adicionando as caixas de destaque (amarela) e de resumo (cinza/verde)
+// no mesmo padrão das questões cadastradas manualmente.
+// As caixas são detectadas de duas formas: pelo título da seção
+// ("Destaque do informativo" / "Resumo da Tese") OU pelo sombreamento
+// de fundo aplicado no próprio Word (data-shd marcado em obterHtmlRico).
+const BOX_AMARELO = '<div style="background:#fef3c7;border-left:4px solid #b45309;padding:12px 16px;border-radius:6px;margin:4px 0 16px">';
+const BOX_CINZA   = '<div style="background:#f0f4f0;border:1.5px solid #b8c8b8;padding:14px 16px;border-radius:8px;margin:6px 0 16px">';
+
+function montarExplicacaoRica(nosExp) {
+  const SECAO = /^(Fundamento legal|Base legal|Destaque do informativo|Dispositivos Legais|TESES PARA QUEST|Resumo da Tese|Tese\s+\d+\s*[—–-])/i;
+  let html = '';
+  let box = null;        // null | 'amarelo' | 'cinza'
+  let boxOrigem = null;  // 'titulo' | 'shd'
+  const fecharBox = () => { if (box) { html += '</div>\n'; box = null; boxOrigem = null; } };
+
+  // Emite um nó sem o atributo data-shd
+  const emitir = (no) => {
+    if (no.hasAttribute && no.hasAttribute('data-shd')) {
+      const clone = no.cloneNode(true);
+      clone.removeAttribute('data-shd');
+      html += clone.outerHTML + '\n';
+    } else {
+      html += no.outerHTML + '\n';
+    }
+  };
+
+  for (const no of nosExp) {
+    if (no.nodeType !== 1) continue;
+    const txt = _txtNo(no);
+    const shd = no.getAttribute ? no.getAttribute('data-shd') : null;
+
+    // Parágrafo vazio = espaçamento (ignora dentro das caixas)
+    if (!txt) {
+      if (!box) html += '<p>\u00a0</p>\n';
+      continue;
+    }
+
+    // ── Títulos que abrem caixas ──
+    if (/^Destaque do informativo/i.test(txt) && txt.length < 60) {
+      fecharBox();
+      emitir(no);
+      html += BOX_AMARELO + '\n';
+      box = 'amarelo'; boxOrigem = 'titulo';
+      continue;
+    }
+    if (/^Resumo da Tese para Memoriza/i.test(txt) && txt.length < 60) {
+      fecharBox();
+      emitir(no);
+      html += BOX_CINZA + '\n';
+      box = 'cinza'; boxOrigem = 'titulo';
+      continue;
+    }
+
+    // ── Parágrafo com sombreamento do Word ──
+    if (shd) {
+      if (!box) {
+        html += (shd === 'amarelo' ? BOX_AMARELO : BOX_CINZA) + '\n';
+        box = shd; boxOrigem = 'shd';
+      }
+      emitir(no);
+      continue;
+    }
+
+    // ── Parágrafo comum: fecha caixa aberta quando aplicável ──
+    if (box && (boxOrigem === 'shd' || SECAO.test(txt))) fecharBox();
+
+    emitir(no);
+  }
+  fecharBox();
+  return html.trim();
+}
+
+// Parser principal: extrai os campos preservando o HTML original do Word
+function parsearQuestaoRica(nos) {
+  const textoTotal = nos.map(_txtNo).join('\n');
+  if (textoTotal.trim().length < 50) return null;
+
+  // 1. TRIBUNAL
+  const tribunalM = textoTotal.match(/^(STJ|STF)/im);
+  if (!tribunalM) return null;
+  const tribunal = tribunalM[1].toUpperCase();
+
+  // 2. INFORMATIVO
+  const infM = textoTotal.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
+  const informativo = infM ? parseInt(infM[1]) : null;
+
+  // 3. TEMA — linha logo abaixo da data do Informativo, no formato
+  //    "Matéria – Subtema" (ex.: "Direito Processual Civil – Execução Fiscal")
+  let temaRaw = '';
+  {
+    let idxInf = -1;
+    for (let i = 0; i < Math.min(10, nos.length); i++) {
+      if (/Informativo\s+n/i.test(_txtNo(nos[i]))) { idxInf = i; break; }
+    }
+    if (idxInf !== -1) {
+      for (let i = idxInf + 1; i < Math.min(idxInf + 4, nos.length); i++) {
+        const t = _txtNo(nos[i]);
+        if (!t) continue;
+        if (/^Enunciado/i.test(t) || /^\(/.test(t) || t.length > 90) break;
+        temaRaw = t;
+        break;
+      }
+    }
+    // Fallback: primeira linha que começa com "Direito"/"Processo"
+    if (!temaRaw) {
+      for (const no of nos.slice(0, 8)) {
+        const t = _txtNo(no);
+        if (/^(Direito|Processo)\b/i.test(t) && t.length > 4) { temaRaw = t; break; }
+      }
+    }
+  }
+  const { tema, codigoMateria } = mapearTema(temaRaw);
+
+  // 4. ÍNDICES ESTRUTURAIS
+  let idxEnunciado = -1, idxPrimAlt = -1, idxGabarito = -1, idxCorreta = -1;
+  nos.forEach((no, i) => {
+    const t = _txtNo(no);
+    if (idxEnunciado === -1 && /^Enunciado\s*:?\s*$/i.test(t)) idxEnunciado = i;
+    if (idxPrimAlt === -1 && /^\(\s*A\s*\)/.test(t)) idxPrimAlt = i;
+    if (idxGabarito === -1 && idxPrimAlt !== -1 && i > idxPrimAlt && /^Gabarito\b/i.test(t)) idxGabarito = i;
+    if (idxCorreta === -1 && t.includes('✅')) idxCorreta = i;
+  });
+  if (idxPrimAlt === -1) return null;
+
+  // 5. CABEÇALHO + ENUNCIADO — HTML fiel ao Word (inclui o título "Enunciado")
+  const fimCab = idxEnunciado >= 0 ? idxEnunciado + 1 : Math.min(3, idxPrimAlt);
+  const cabecalhoNos = nos.slice(0, fimCab);
+  const enunNos = nos.slice(fimCab, idxPrimAlt);
+  const enunciadoHtml = cabecalhoNos.concat(enunNos).map(n => n.outerHTML).join('\n');
+  const enunciadoTexto = enunNos.map(_txtNo).filter(Boolean).join('\n');
+  if (!enunciadoTexto) return null;
+
+  // 6. ALTERNATIVAS — HTML interno preservado, sem o prefixo "(X)"
+  const fimAlts = idxGabarito !== -1 ? idxGabarito : (idxCorreta !== -1 ? idxCorreta : nos.length);
+  const alts = {};
+  let letraAtual = null;
+  for (let i = idxPrimAlt; i < fimAlts; i++) {
+    const no = nos[i];
+    const t = _txtNo(no);
+    const m = t.match(/^\(\s*([A-E])\s*\)/i);
+    if (m) {
+      letraAtual = m[1].toUpperCase();
+      alts[letraAtual] = removerPrefixoAlternativa(no);
+    } else if (letraAtual && t) {
+      alts[letraAtual] += '<br>' + no.innerHTML.trim();
+    }
+  }
+  if (Object.keys(alts).length < 4) return null;
+
+  // 7. GABARITO
+  const textoGab = nos.slice(fimAlts, idxCorreta !== -1 ? idxCorreta + 1 : nos.length)
+    .map(_txtNo).join('\n');
+  const gabM = textoGab.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i) ||
+               textoGab.match(/\bAlternativa\s+([A-E])\b/i) ||
+               textoTotal.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i);
+  const gabarito = gabM ? gabM[1].toUpperCase() : null;
+  if (!gabarito) return null;
+
+  // 8. EXPLICAÇÃO — todos os parágrafos após "✅ CORRETA", com formatação original
+  let explicacao = '';
+  if (idxCorreta !== -1) {
+    explicacao = montarExplicacaoRica(nos.slice(idxCorreta + 1));
+  } else if (idxGabarito !== -1) {
+    // Sem ✅: pega tudo após "Gabarito", pulando a linha "Alternativa X"
+    const restantes = nos.slice(idxGabarito + 1).filter(no => !/^Alternativa\s+[A-E]\s*$/i.test(_txtNo(no)));
+    explicacao = montarExplicacaoRica(restantes);
+  }
+
+  // 9. TIPO DE TESE
+  let tipo_tese = '';
+  if (/repercuss[aã]o\s+geral/i.test(textoTotal)) tipo_tese = 'Repercussão Geral';
+  else if (/recursos?\s+repetitivos?/i.test(textoTotal)) tipo_tese = 'Recursos Repetitivos';
+  else if (/\bIAC\b|incidente de assun[çc][aã]o/i.test(textoTotal)) tipo_tese = 'IAC';
+
+  return {
+    tribunal, informativo, tema, codigoMateria,
+    enunciado: enunciadoTexto,   // texto puro (usado no preview)
+    enunciadoHtml,               // HTML fiel ao Word (salvo no banco)
+    gabarito, explicacao, tipo_tese,
+    alternativa_a: alts['A'] || '', alternativa_b: alts['B'] || '',
+    alternativa_c: alts['C'] || '', alternativa_d: alts['D'] || '',
+    alternativa_e: alts['E'] || '',
+  };
 }
 
 function parsearUmaQuestao(texto) {
@@ -3180,6 +3497,320 @@ function previewImport() {
 }
 
 // ── Executar importação ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// IMPORTAR 2 — colagem única com formatação fiel do Word
+// ═══════════════════════════════════════════════════════════════
+
+let imp2Questoes = []; // questões parseadas aguardando importação
+
+function limparImportar2() {
+  document.getElementById('imp2-texto').innerHTML = '';
+  document.getElementById('imp2-status').textContent = '';
+  document.getElementById('imp2-preview').innerHTML = '';
+  document.getElementById('btn-imp2-importar').style.display = 'none';
+  imp2Questoes = [];
+}
+
+// Divide os nós em blocos de questão (cada cabeçalho STJ/STF inicia um bloco)
+function dividirBlocosImp2(nos) {
+  const blocos = [];
+  let atual = null;
+  for (const no of nos) {
+    const t = _txtNo(no);
+    if (/^(STJ|STF)\s*([–\-—]|$)/i.test(t)) {
+      if (atual && atual.length) blocos.push(atual);
+      atual = [no];
+    } else {
+      if (!atual) atual = [];
+      atual.push(no);
+    }
+  }
+  if (atual && atual.length) blocos.push(atual);
+  return blocos;
+}
+
+// Parseia um bloco de nós em uma questão estruturada, preservando HTML
+function parsearBlocoImp2(nos, incorretaMode) {
+  if (nos.length < 5) return null;
+  const txt = (no) => _txtNo(no);
+
+  // Índices estruturais
+  let idxPrimAlt = -1, idxGabarito = -1, idxCorreta = -1, idxIncorreta = -1;
+  nos.forEach((no, i) => {
+    const t = txt(no);
+    if (idxPrimAlt === -1 && /^\(\s*A\s*\)/.test(t)) idxPrimAlt = i;
+    if (idxGabarito === -1 && idxPrimAlt !== -1 && i > idxPrimAlt && /^Gabarito\b/i.test(t)) idxGabarito = i;
+    if (idxCorreta === -1 && /✅/.test(t)) idxCorreta = i;
+    if (idxIncorreta === -1 && /❌/.test(t)) idxIncorreta = i;
+  });
+  if (idxPrimAlt === -1) return null;
+
+  // CABEÇALHO
+  let tribunal = '', informativo = '', temaRaw = '', tipoTese = '';
+  const cabNos = nos.slice(0, idxPrimAlt);
+  for (const no of cabNos) {
+    const t = txt(no);
+    if (!tribunal && /^(STJ|STF)\b/i.test(t)) {
+      tribunal = t.startsWith('STF') ? 'STF' : 'STJ';
+      if (/repercuss[aã]o\s+geral/i.test(t)) tipoTese = 'Repercussão Geral';
+      else if (/repetitivos?/i.test(t)) tipoTese = 'Recursos Repetitivos';
+      else if (/\bIAC\b|assun[çc][aã]o/i.test(t)) tipoTese = 'IAC';
+    }
+    if (!informativo) {
+      const m = t.match(/Informativo\s+n[oº°]?\s*\.?\s*(\d+)/i);
+      if (m) informativo = m[1];
+    }
+  }
+
+  // Tema: linha após informativo
+  {
+    let idxInf = -1;
+    for (let i = 0; i < cabNos.length; i++) {
+      if (/Informativo\s+n/i.test(txt(cabNos[i]))) { idxInf = i; break; }
+    }
+    if (idxInf !== -1) {
+      for (let i = idxInf + 1; i < cabNos.length; i++) {
+        const t = txt(cabNos[i]);
+        if (!t || /^Enunciado/i.test(t)) continue;
+        temaRaw = t; break;
+      }
+    }
+    if (!temaRaw) {
+      for (const no of cabNos) {
+        const t = txt(no);
+        if (/^(Direito|Processo)\b/i.test(t)) { temaRaw = t; break; }
+      }
+    }
+  }
+  const { tema, codigoMateria } = mapearTema(temaRaw);
+
+  // ENUNCIADO HTML fiel
+  const enunciadoHtml = nos.slice(0, idxPrimAlt).map(n => n.outerHTML).join('\n');
+  const enunciadoTexto = nos.slice(0, idxPrimAlt).map(txt).filter(Boolean).join(' ');
+
+  // ALTERNATIVAS
+  const fimAlts = idxGabarito !== -1 ? idxGabarito
+    : (idxCorreta !== -1 ? idxCorreta : (idxIncorreta !== -1 ? idxIncorreta : nos.length));
+  const alts = {};
+  let letraAtual = null;
+  for (let i = idxPrimAlt; i < fimAlts; i++) {
+    const no = nos[i];
+    const t = txt(no);
+    const m = t.match(/^\(\s*([A-E])\s*\)/i);
+    if (m) {
+      letraAtual = m[1].toUpperCase();
+      alts[letraAtual] = removerPrefixoAlternativa(no);
+    } else if (letraAtual && t) {
+      alts[letraAtual] += '<br>' + no.innerHTML.trim();
+    }
+  }
+
+  // GABARITO
+  let gabarito = '';
+  for (let i = fimAlts; i < Math.min(fimAlts + 5, nos.length); i++) {
+    const t = txt(nos[i]);
+    const m = t.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i) ||
+              t.match(/\bAlternativa\s+([A-E])\b/i);
+    if (m) { gabarito = m[1].toUpperCase(); break; }
+  }
+  if (!gabarito) {
+    for (let i = fimAlts; i < nos.length; i++) {
+      const t = txt(nos[i]);
+      const m = t.match(/✅.*?\(([A-E])\)/i) || t.match(/\(([A-E])\).*?✅/i);
+      if (m) { gabarito = m[1].toUpperCase(); break; }
+    }
+  }
+  if (!gabarito) {
+    const todoTexto = nos.map(txt).join('\n');
+    const m = todoTexto.match(/Gabarito[\s\S]{0,40}?(?:Alternativa\s+)?\b([A-E])\b/i);
+    if (m) gabarito = m[1].toUpperCase();
+  }
+
+  // EXPLICAÇÃO
+  let explicacaoStart = fimAlts;
+  if (idxCorreta !== -1) explicacaoStart = idxCorreta + 1;
+  else if (idxIncorreta !== -1) explicacaoStart = idxIncorreta + 1;
+  else if (idxGabarito !== -1) {
+    explicacaoStart = idxGabarito + 1;
+    while (explicacaoStart < nos.length) {
+      const t = txt(nos[explicacaoStart]);
+      if (/^Alternativa\s+[A-E]\s*$/i.test(t) || /^[✅❌✗✓]/.test(t)) { explicacaoStart++; continue; }
+      break;
+    }
+  }
+  const explicacao = montarExplicacaoRica(nos.slice(explicacaoStart));
+
+  return {
+    tribunal, informativo, tema, codigoMateria, tipoTese,
+    enunciadoHtml, enunciadoTexto, gabarito, explicacao, incorretaMode,
+    alternativa_a: alts['A'] || '', alternativa_b: alts['B'] || '',
+    alternativa_c: alts['C'] || '', alternativa_d: alts['D'] || '',
+    alternativa_e: alts['E'] || '',
+  };
+}
+
+// Processa o conteúdo colado e exibe preview
+function processarImportar2() {
+  const el = document.getElementById('imp2-texto');
+  const status = document.getElementById('imp2-status');
+  const preview = document.getElementById('imp2-preview');
+  const incorretaMode = document.getElementById('imp2-incorreta').checked;
+
+  if (!el.textContent.trim()) { status.textContent = '⚠ Cole a(s) questão(ões) antes de processar.'; return; }
+
+  // Limpa estilos do Word preservando formatação semântica e shading
+  el.innerHTML = obterHtmlRico(el.innerHTML);
+
+  // Divide em blocos por cabeçalho STJ/STF
+  const nos = Array.from(el.children);
+  const blocos = dividirBlocosImp2(nos);
+
+  // Se só tem um bloco (ou nenhum STJ/STF no início), trata como bloco único
+  const blocosFinais = blocos.length > 0 ? blocos : [nos];
+
+  imp2Questoes = blocosFinais.map(b => parsearBlocoImp2(b, incorretaMode)).filter(Boolean);
+
+  if (!imp2Questoes.length) {
+    status.textContent = '⚠ Não consegui identificar nenhuma questão. Verifique se as alternativas (A)–(E) estão presentes.';
+    preview.innerHTML = '';
+    return;
+  }
+
+  // Se é uma única questão: abre direto no modal
+  if (imp2Questoes.length === 1) {
+    abrirModalImp2(0);
+    status.textContent = '✅ 1 questão processada — revise os campos e salve.';
+    preview.innerHTML = '';
+    document.getElementById('btn-imp2-importar').style.display = 'none';
+    return;
+  }
+
+  // Múltiplas questões: exibe lista de preview
+  status.textContent = `✅ ${imp2Questoes.length} questões detectadas — revise e importe.`;
+  document.getElementById('btn-imp2-importar').style.display = '';
+
+  preview.innerHTML = imp2Questoes.map((q, i) => {
+    const resumo = (q.enunciadoTexto || '').replace(/<[^>]+>/g, ' ').substring(0, 120);
+    const badges = [
+      q.tribunal ? `<span class="badge badge-ink">${q.tribunal}</span>` : '',
+      q.tema ? `<span class="badge badge-gray">${q.tema}</span>` : '',
+      q.gabarito ? `<span class="badge badge-gold">Gab: ${q.gabarito}</span>` : '<span class="badge badge-red">Gab: ?</span>',
+      q.informativo ? `<span class="badge badge-gray">Inf. ${q.informativo}</span>` : '',
+      q.tipoTese ? `<span class="badge badge-green" style="font-size:10px">${q.tipoTese}</span>` : '',
+    ].filter(Boolean).join(' ');
+    return `
+      <div style="background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Questão ${i + 1} de ${imp2Questoes.length}</div>
+            <div style="font-size:13px;color:var(--ink);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${escapeHtml(resumo)}...</div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">${badges}</div>
+          </div>
+          <button class="btn-add-questao" onclick="abrirModalImp2(${i})" style="white-space:nowrap;flex-shrink:0">
+            ✎ Revisar
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// Abre o modal de edição com uma questão do Importar 2
+function abrirModalImp2(idx) {
+  const q = imp2Questoes[idx];
+  if (!q) return;
+
+  editingQuestaoId = null;
+  const modal = document.getElementById('modal-questao');
+  document.getElementById('modal-questao-title').textContent =
+    imp2Questoes.length > 1 ? `Revisar questão ${idx + 1} de ${imp2Questoes.length}` : 'Nova questão (Importar 2)';
+
+  // Popula dropdown de matérias
+  const sel = document.getElementById('mq-tema');
+  sel.innerHTML = '<option value="">Selecione a matéria...</option>' +
+    materias.filter(m => m.ativo).map(m => `<option value="${escapeAttr(m.nome)}" data-codigo="${m.codigo || ''}">${m.nome}</option>`).join('');
+
+  document.getElementById('mq-tribunal').value = q.tribunal;
+  document.getElementById('mq-informativo').value = q.informativo;
+  document.getElementById('mq-dificuldade').value = 'médio';
+  sel.value = q.tema;
+  document.getElementById('mq-tipo-tese').value = q.tipoTese;
+  document.getElementById('mq-gabarito').value = q.gabarito || 'A';
+
+  document.getElementById('mq-enunciado').innerHTML = q.enunciadoHtml;
+  document.getElementById('mq-alt-a').innerHTML = q.alternativa_a;
+  document.getElementById('mq-alt-b').innerHTML = q.alternativa_b;
+  document.getElementById('mq-alt-c').innerHTML = q.alternativa_c;
+  document.getElementById('mq-alt-d').innerHTML = q.alternativa_d;
+  document.getElementById('mq-alt-e').innerHTML = q.alternativa_e;
+  document.getElementById('mq-explicacao').innerHTML = q.explicacao;
+
+  atualizarCodigoPreview();
+  modal.classList.remove('hidden');
+}
+
+// Importa todas as questões do Importar 2 de uma vez
+async function importarTodasImp2() {
+  if (!imp2Questoes.length) return;
+  const btn = document.getElementById('btn-imp2-importar');
+  const status = document.getElementById('imp2-status');
+  btn.disabled = true; btn.textContent = 'Importando...';
+
+  let ok = 0, erros = 0;
+  for (const q of imp2Questoes) {
+    // Mapeia matéria → código
+    let codigoMateria = q.codigoMateria || '';
+    if (!codigoMateria && q.tema) {
+      const m = materias.find(m => m.nome === q.tema && m.ativo);
+      if (m) codigoMateria = m.codigo || '';
+    }
+
+    const codigo = (q.tribunal && q.informativo)
+      ? await gerarCodigo(q.tribunal, q.informativo, codigoMateria)
+      : null;
+
+    const payload = {
+      tribunal: q.tribunal,
+      informativo: q.informativo ? parseInt(q.informativo) : null,
+      dificuldade: 'médio',
+      tema: q.tema,
+      enunciado: q.enunciadoHtml,
+      alternativa_a: q.alternativa_a,
+      alternativa_b: q.alternativa_b,
+      alternativa_c: q.alternativa_c,
+      alternativa_d: q.alternativa_d,
+      alternativa_e: q.alternativa_e,
+      gabarito: q.gabarito || null,
+      tipo_tese: q.tipoTese || null,
+      explicacao: q.explicacao,
+      codigo,
+    };
+
+    const { error, data } = await sb.from('questoes').insert(payload).select();
+    if (error || !data?.length) {
+      erros++;
+      console.error('[imp2] Erro ao importar:', error);
+    } else {
+      ok++;
+      // Atualiza array local para que gerarCodigo numere corretamente as seguintes
+      questoes.push(data[0]);
+    }
+  }
+
+  btn.disabled = false; btn.textContent = '⬆ Importar todas';
+  status.textContent = `✅ ${ok} questão(ões) importada(s)` + (erros ? ` · ❌ ${erros} erro(s)` : '') + '.';
+
+  if (ok > 0) {
+    await carregarDados();
+    try { renderAdminQuestoes(); } catch(e) {}
+    // Limpa preview
+    document.getElementById('imp2-preview').innerHTML =
+      `<div style="padding:16px;text-align:center;color:var(--green);font-size:14px">✅ ${ok} questão(ões) importada(s) com sucesso!</div>`;
+    document.getElementById('btn-imp2-importar').style.display = 'none';
+    imp2Questoes = [];
+  }
+}
+
+
 async function executarImport() {
   if (!questoesParaImportar.length) return;
   const btn = document.getElementById('btn-importar-executar');
@@ -3195,27 +3826,30 @@ async function executarImport() {
     // Gera código usando o mesmo padrão do modal manual
     const codigo = await gerarCodigo(q.tribunal, q.informativo, q.codigoMateria);
 
-    // Monta cabeçalho como HTML para exibição no quiz
-    const linhasTribunalCab = (q.cabecalho || q.tribunal || '').trim();
-    const linhasInf = q.linhaDatas || (q.informativo ? 'Informativo nº ' + q.informativo : '');
-    const linhasTema = (q.temaCompleto || q.tema || '').trim();
+    // Enunciado: HTML fiel ao Word (já inclui cabeçalho e título "Enunciado")
+    let enunciadoFinal;
+    if (q.enunciadoHtml) {
+      enunciadoFinal = q.enunciadoHtml;
+    } else {
+      // Fallback (texto puro colado sem formatação): monta cabeçalho manualmente
+      const linhasTribunalCab = (q.cabecalho || q.tribunal || '').trim();
+      const linhasInf = q.linhaDatas || (q.informativo ? 'Informativo nº ' + q.informativo : '');
+      const linhasTema = (q.temaCompleto || q.tema || '').trim();
+      const partesCabecalho = [
+        linhasTribunalCab ? `<p><strong>${linhasTribunalCab}</strong></p>` : '',
+        linhasInf         ? `<p>${linhasInf}</p>` : '',
+        linhasTema        ? `<p><strong>${linhasTema}</strong></p>` : '',
+        `<p>&nbsp;</p>`,
+        `<p><strong>Enunciado</strong></p>`,
+      ].filter(Boolean).join('\n');
+      const enunciadoRico = htmlRicoTotal
+        ? extrairTrechoHtml(htmlRicoTotal, 'Enunciado', '(A)')
+        : '';
+      enunciadoFinal = partesCabecalho + '\n' +
+        (enunciadoRico || '<p>' + q.enunciado + '</p>');
+    }
 
-    const partesCabecalho = [
-      linhasTribunalCab ? `<p><strong>${linhasTribunalCab}</strong></p>` : '',
-      linhasInf         ? `<p>${linhasInf}</p>` : '',
-      linhasTema        ? `<p><strong>${linhasTema}</strong></p>` : '',
-      `<p>&nbsp;</p>`,
-      `<p><strong>Enunciado</strong></p>`,
-    ].filter(Boolean).join('\n');
-
-    // Enunciado: usa HTML rico se disponível, senão texto plano
-    const enunciadoRico = htmlRicoTotal
-      ? extrairTrechoHtml(htmlRicoTotal, 'Enunciado', '(A)')
-      : '';
-    const enunciadoFinal = partesCabecalho + '\n' +
-      (enunciadoRico || '<p>' + q.enunciado + '</p>');
-
-    // Explicação: usa formatarExplicacao (já gera seções e cores corretamente)
+    // Explicação: HTML com a formatação original do Word
     const explicacaoFinal = q.explicacao;
 
     const payload = {
